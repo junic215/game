@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>アクションゲーム - 箱根ゲームクリエイター</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            overflow: hidden; /* スクロールバーを出さない */
+        }
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+    <!-- Phaser 3 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+</head>
+<body>
+
+    <div id="game-container"></div>
+    
+    <!-- ゲームのメインロジック -->
+    <script src="js/game.js"></script>
+</body>
+</html>

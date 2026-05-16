@@ -1,0 +1,664 @@
+// ===== しらいっち - 育成ゲーム =====
+// 実行: このファイルをブラウザで開くか、Node.js環境で動かしてください
+
+(function() {
+  const GAME_HTML = `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>しらいっち</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Courier New', monospace;
+    user-select: none;
+  }
+  h1 {
+    color: #e8c97a;
+    font-size: 22px;
+    letter-spacing: 4px;
+    margin-bottom: 16px;
+    text-shadow: 0 0 10px #e8c97a55;
+  }
+  .device {
+    background: radial-gradient(ellipse at 30% 20%, #f5e6d0, #d4a96a);
+    border-radius: 50% / 40%;
+    width: 300px;
+    height: 340px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding-top: 24px;
+    box-shadow:
+      0 0 0 6px #b8893a,
+      0 0 0 10px #8a6220,
+      0 8px 40px #00000099;
+    position: relative;
+  }
+  .screen-frame {
+    background: #222;
+    border-radius: 10px;
+    padding: 6px;
+    box-shadow: inset 0 2px 8px #000a;
+    width: 220px;
+    height: 180px;
+  }
+  .screen {
+    background: #9db885;
+    border-radius: 6px;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    image-rendering: pixelated;
+  }
+  canvas#gameCanvas {
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+  .stats-bar {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    width: 220px;
+    justify-content: space-between;
+  }
+  .stat {
+    background: #22222288;
+    border-radius: 6px;
+    padding: 3px 7px;
+    font-size: 11px;
+    color: #ffe9b0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+  }
+  .stat-label { font-size: 9px; color: #ffcc66; }
+  .meter {
+    width: 100%;
+    height: 5px;
+    background: #444;
+    border-radius: 3px;
+    margin-top: 2px;
+    overflow: hidden;
+  }
+  .meter-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s;
+  }
+  .meter-hunger .meter-fill { background: #ff6b6b; }
+  .meter-happy .meter-fill { background: #6bddff; }
+  .meter-weight .meter-fill { background: #ffb347; }
+  .buttons {
+    display: flex;
+    gap: 16px;
+    margin-top: 18px;
+  }
+  .btn {
+    background: #5a3e1b;
+    color: #f5d08a;
+    border: none;
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+    cursor: pointer;
+    box-shadow: 0 3px 0 #2d1e0a, 0 4px 10px #0005;
+    transition: transform 0.08s, box-shadow 0.08s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 #2d1e0a;
+  }
+  .btn-large {
+    background: #7a2e2e;
+    color: #ffd0d0;
+  }
+  .status-msg {
+    color: #e8c97a;
+    font-size: 12px;
+    margin-top: 10px;
+    height: 18px;
+    letter-spacing: 1px;
+  }
+  .mode-indicator {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    font-size: 9px;
+    color: #7a6a3a;
+    letter-spacing: 1px;
+  }
+  .evolution-flash {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #fffde7;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 100;
+    animation: evoFlash 1s ease-out;
+  }
+  @keyframes evoFlash {
+    0% { opacity: 0.9; }
+    100% { opacity: 0; }
+  }
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #00000088;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+  }
+  .modal-box {
+    background: #2a1f0e;
+    border: 2px solid #e8c97a;
+    border-radius: 14px;
+    padding: 24px 32px;
+    color: #ffe9b0;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+  }
+  .modal-box h2 { font-size: 18px; margin-bottom: 12px; color: #ffd700; }
+  .modal-box p { font-size: 13px; margin-bottom: 8px; }
+  .modal-close {
+    margin-top: 14px;
+    background: #5a3e1b;
+    color: #f5d08a;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 22px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<h1>🥚 しらいっち 🥚</h1>
+<div class="device">
+  <div class="mode-indicator" id="modeLabel">NORMAL</div>
+  <div class="screen-frame">
+    <div class="screen">
+      <canvas id="gameCanvas" width="104" height="80"></canvas>
+    </div>
+  </div>
+  <div class="stats-bar">
+    <div class="stat">
+      <span class="stat-label">おなか</span>
+      <span id="hungerVal">100</span>
+      <div class="meter meter-hunger"><div class="meter-fill" id="hungerBar" style="width:100%"></div></div>
+    </div>
+    <div class="stat">
+      <span class="stat-label">きもち</span>
+      <span id="happyVal">100</span>
+      <div class="meter meter-happy"><div class="meter-fill" id="happyBar" style="width:100%"></div></div>
+    </div>
+    <div class="stat">
+      <span class="stat-label">たいじゅう</span>
+      <span id="weightVal">30</span>
+      <div class="meter meter-weight"><div class="meter-fill" id="weightBar" style="width:30%"></div></div>
+    </div>
+  </div>
+  <div class="buttons">
+    <button class="btn" id="btnFeed" title="ごはん">🍙</button>
+    <button class="btn btn-large" id="btnPlay" title="あそぶ">🎮</button>
+    <button class="btn" id="btnClean" title="そうじ">🧹</button>
+  </div>
+  <div class="status-msg" id="statusMsg">しらいっちがうまれた！</div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const W = 104, H = 80;
+
+// ===== ゲーム状態 =====
+const state = {
+  hunger: 100,       // 0=ぺこぺこ, 100=まんぷく
+  happy: 100,
+  weight: 30,        // 30=ほつそ, 100=ぽっちゃり限界
+  stage: 'normal',   // normal / chubby / fat
+  poopList: [],      // うんちオブジェクト
+  mode: 'normal',    // normal / play
+  eating: false,
+  eatFrame: 0,
+  onigiriX: 0,
+  onigiriY: 0,
+  charX: 52,
+  charY: 38,
+  bobOffset: 0,
+  bobDir: 1,
+  playMinigame: null,  // ミニゲーム状態
+  age: 0,
+  lastPoopTime: Date.now(),
+  poopInterval: 20000,
+  statusTimeout: null,
+  evolved: false,
+};
+
+// ===== ピクセルキャラクター定義 =====
+// 各ステージのおじさんキャラ (1=黒, 2=肌, 3=白, 4=灰, 5=茶, 0=透明)
+const CHARS = {
+  normal: [
+    [0,0,1,1,1,1,0,0],
+    [0,1,2,2,2,2,1,0],
+    [0,1,2,1,2,1,1,0],
+    [0,1,2,2,2,2,1,0],
+    [0,1,1,2,2,1,1,0],
+    [0,1,5,1,1,5,1,0],
+    [0,0,1,1,1,1,0,0],
+    [0,0,1,0,0,1,0,0],
+  ],
+  chubby: [
+    [0,1,1,1,1,1,1,0],
+    [1,2,2,2,2,2,2,1],
+    [1,2,2,1,2,1,2,1],
+    [1,2,2,2,2,2,2,1],
+    [1,1,2,2,2,2,1,1],
+    [1,5,5,1,1,5,5,1],
+    [0,1,1,1,1,1,1,0],
+    [0,1,1,0,0,1,1,0],
+  ],
+  fat: [
+    [1,1,1,1,1,1,1,1],
+    [1,2,2,2,2,2,2,1],
+    [1,2,1,2,2,1,2,1],
+    [1,2,2,2,2,2,2,1],
+    [1,2,2,2,2,2,2,1],
+    [1,1,2,2,2,2,1,1],
+    [1,5,5,1,1,5,5,1],
+    [1,1,1,1,1,1,1,1],
+  ],
+};
+
+const PALETTES = {
+  normal: { 1:'#2a1f0e', 2:'#f5c58a', 3:'#fff', 4:'#aaa', 5:'#8b5e3c' },
+  chubby: { 1:'#2a1f0e', 2:'#f5a96a', 3:'#fff', 4:'#aaa', 5:'#8b5e3c' },
+  fat:    { 1:'#2a1f0e', 2:'#f5876a', 3:'#fff', 4:'#aaa', 5:'#8b5e3c' },
+};
+
+// うんちスプライト
+const POOP_SPRITE = [
+  [0,1,1,1,0],
+  [1,1,1,1,1],
+  [1,1,1,1,1],
+  [0,1,1,1,0],
+  [0,0,1,0,0],
+];
+
+// おにぎりスプライト
+const ONIGIRI_SPRITE = [
+  [0,1,1,1,0],
+  [1,3,3,3,1],
+  [1,3,3,3,1],
+  [1,3,3,1,1],
+  [0,1,1,0,0],
+];
+
+const ONIGIRI_PALETTE = { 1:'#2a1f0e', 3:'#fff' };
+
+// ===== 描画関数 =====
+function drawSprite(sprite, pal, ox, oy, scale=2) {
+  sprite.forEach((row, r) => {
+    row.forEach((c, col) => {
+      if (!c) return;
+      ctx.fillStyle = pal[c] || '#000';
+      ctx.fillRect(ox + col * scale, oy + r * scale, scale, scale);
+    });
+  });
+}
+
+function getStageChar() {
+  if (state.weight >= 80) return 'fat';
+  if (state.weight >= 55) return 'chubby';
+  return 'normal';
+}
+
+function drawCharacter() {
+  const stage = getStageChar();
+  const sprite = CHARS[stage];
+  const pal = PALETTES[stage];
+  const scale = stage === 'fat' ? 3 : 2;
+  const cx = state.charX - (sprite[0].length * scale) / 2;
+  const cy = state.charY - (sprite.length * scale) / 2 + Math.round(state.bobOffset);
+  drawSprite(sprite, pal, cx, cy, scale);
+}
+
+function drawPoops() {
+  state.poopList.forEach(p => {
+    drawSprite(POOP_SPRITE, {1:'#7a5230'}, p.x, p.y, 2);
+    // くさい波線
+    ctx.fillStyle = '#5ab25a55';
+    ctx.font = '6px monospace';
+    ctx.fillText('~', p.x + 3, p.y - 2);
+  });
+}
+
+function drawOnigiri() {
+  if (!state.eating) return;
+  drawSprite(ONIGIRI_SPRITE, ONIGIRI_PALETTE, state.onigiriX, state.onigiriY, 2);
+}
+
+function drawHungerIndicator() {
+  if (state.hunger < 30) {
+    // ぺこぺこマーク
+    ctx.fillStyle = '#ff4444';
+    ctx.font = '7px monospace';
+    const blink = Math.floor(Date.now() / 400) % 2;
+    if (blink) ctx.fillText('!!', state.charX + 8, state.charY - 14);
+  }
+}
+
+function drawBackground() {
+  // 画面背景 - グリーン液晶風グラデーション
+  const grad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, 60);
+  grad.addColorStop(0, '#b8d4a0');
+  grad.addColorStop(1, '#8ab878');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // ドット格子パターン（液晶風）
+  ctx.fillStyle = '#00000008';
+  for (let x=0; x<W; x+=4) for (let y=0; y<H; y+=4) {
+    ctx.fillRect(x, y, 1, 1);
+  }
+
+  // 地面
+  ctx.fillStyle = '#6a9e5a';
+  ctx.fillRect(0, H - 12, W, 12);
+  ctx.fillStyle = '#5a8e4a';
+  ctx.fillRect(0, H - 13, W, 2);
+}
+
+function drawPlayUI() {
+  if (state.mode !== 'play' || !state.playMinigame) return;
+  const g = state.playMinigame;
+  // ダイエットゲーム: ジャンプして障害物を避ける
+  ctx.fillStyle = '#ff6633';
+  ctx.fillRect(g.obstX, H - 22, 6, 12);
+  // ジャンプ中のキャラ
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = '7px monospace';
+  ctx.fillText('↑JUMP', 2, 8);
+  ctx.fillStyle = '#33aaff';
+  ctx.fillText(`score:${g.score}`, W - 40, 8);
+}
+
+function drawAll() {
+  ctx.clearRect(0, 0, W, H);
+  drawBackground();
+  drawPoops();
+  drawCharacter();
+  drawOnigiri();
+  drawHungerIndicator();
+  if (state.mode === 'play') drawPlayUI();
+}
+
+// ===== ゲームループ =====
+let lastTime = 0;
+function gameLoop(ts) {
+  const dt = ts - lastTime;
+  lastTime = ts;
+
+  // ボブアニメ
+  state.bobOffset += 0.08 * state.bobDir;
+  if (Math.abs(state.bobOffset) > 1.5) state.bobDir *= -1;
+
+  // 食べるアニメ
+  if (state.eating) {
+    state.eatFrame++;
+    // おにぎりをキャラに近づける
+    const tx = state.charX + 6;
+    const ty = state.charY - 4;
+    state.onigiriX += (tx - state.onigiriX) * 0.18;
+    state.onigiriY += (ty - state.onigiriY) * 0.18;
+    if (state.eatFrame > 40) {
+      state.eating = false;
+      state.eatFrame = 0;
+    }
+  }
+
+  // うんち自動生成
+  const now = Date.now();
+  if (now - state.lastPoopTime > state.poopInterval) {
+    spawnPoop();
+    state.lastPoopTime = now;
+  }
+
+  // ダイエットミニゲーム更新
+  if (state.mode === 'play' && state.playMinigame) {
+    updatePlayMinigame(dt);
+  }
+
+  checkEvolution();
+  drawAll();
+  updateUI();
+  requestAnimationFrame(gameLoop);
+}
+
+// ===== うんち生成 =====
+function spawnPoop() {
+  if (state.poopList.length >= 5) return;
+  const px = 10 + Math.random() * (W - 30);
+  state.poopList.push({ x: px, y: H - 24 });
+  setStatus('💩 うんちをした！');
+}
+
+// ===== 進化チェック =====
+function checkEvolution() {
+  const newStage = getStageChar();
+  if (newStage !== state.stage) {
+    const prev = state.stage;
+    state.stage = newStage;
+    if (newStage === 'chubby' && prev === 'normal') {
+      triggerEvolution('ぽっちゃりに しんかした！');
+    } else if (newStage === 'fat' && prev === 'chubby') {
+      triggerEvolution('まんまるに しんかした！');
+    } else if (newStage === 'normal') {
+      setStatus('ダイエット せいこう！');
+    }
+  }
+}
+
+function triggerEvolution(msg) {
+  const flash = document.createElement('div');
+  flash.className = 'evolution-flash';
+  document.body.appendChild(flash);
+  setTimeout(() => flash.remove(), 1000);
+  showModal('✨ しんか！', msg);
+}
+
+// ===== ごはんボタン =====
+document.getElementById('btnFeed').addEventListener('click', () => {
+  if (state.eating) return;
+  if (state.hunger >= 100) {
+    setStatus('おなかいっぱいだよ！');
+    return;
+  }
+  // おにぎりをキャラの右から登場させる
+  state.eating = true;
+  state.eatFrame = 0;
+  state.onigiriX = state.charX + 30;
+  state.onigiriY = state.charY;
+
+  state.hunger = Math.min(100, state.hunger + 25);
+  state.weight = Math.min(100, state.weight + 5);
+  setStatus('もぐもぐ おいしい！');
+});
+
+// ===== あそぶボタン =====
+document.getElementById('btnPlay').addEventListener('click', () => {
+  if (state.mode === 'play') {
+    endPlayMinigame();
+    return;
+  }
+  state.mode = 'play';
+  document.getElementById('modeLabel').textContent = 'DIET';
+  startPlayMinigame();
+  setStatus('ダイエット タイム！');
+});
+
+// ===== そうじボタン =====
+document.getElementById('btnClean').addEventListener('click', () => {
+  if (state.poopList.length === 0) {
+    setStatus('きれいだよ～');
+    return;
+  }
+  state.poopList = [];
+  state.happy = Math.min(100, state.happy + 10);
+  setStatus('ピカピカになった！');
+});
+
+// ===== ダイエットミニゲーム =====
+function startPlayMinigame() {
+  state.playMinigame = {
+    obstX: W + 10,
+    obstSpeed: 40,
+    score: 0,
+    jumping: false,
+    jumpY: 0,
+    jumpVY: 0,
+    frame: 0,
+  };
+  // スペースキーでジャンプ
+  document.addEventListener('keydown', onJump);
+  canvas.addEventListener('click', onJump);
+}
+
+function onJump(e) {
+  if (state.mode !== 'play' || !state.playMinigame) return;
+  const g = state.playMinigame;
+  if (!g.jumping) {
+    g.jumping = true;
+    g.jumpVY = -3.5;
+  }
+}
+
+function updatePlayMinigame(dt) {
+  const g = state.playMinigame;
+  if (!g) return;
+  const ms = dt || 16;
+
+  // 障害物移動
+  g.obstX -= g.obstSpeed * (ms / 1000);
+  if (g.obstX < -10) {
+    g.obstX = W + 10;
+    g.score++;
+    g.obstSpeed = Math.min(90, 40 + g.score * 3);
+    // ダイエット効果
+    if (state.weight > 30) {
+      state.weight = Math.max(30, state.weight - 2);
+    }
+    state.happy = Math.min(100, state.happy + 5);
+    setStatus(`スコア: ${g.score}！`);
+  }
+
+  // ジャンプ物理
+  if (g.jumping) {
+    g.jumpVY += 0.25;
+    state.charY += g.jumpVY;
+    if (state.charY >= 38) {
+      state.charY = 38;
+      g.jumping = false;
+      g.jumpVY = 0;
+    }
+  }
+
+  // 衝突判定（キャラが地面にいる時だけ）
+  const charLeft = state.charX - 8;
+  const charRight = state.charX + 8;
+  if (!g.jumping && g.obstX < charRight && g.obstX + 6 > charLeft) {
+    // ぶつかった
+    setStatus('ドン！ ゲームオーバー');
+    endPlayMinigame();
+  }
+}
+
+function endPlayMinigame() {
+  state.mode = 'normal';
+  state.charY = 38;
+  state.playMinigame = null;
+  document.getElementById('modeLabel').textContent = 'NORMAL';
+  document.removeEventListener('keydown', onJump);
+  canvas.removeEventListener('click', onJump);
+}
+
+// ===== ステータス表示 =====
+function setStatus(msg) {
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  if (state.statusTimeout) clearTimeout(state.statusTimeout);
+  state.statusTimeout = setTimeout(() => { el.textContent = ''; }, 3000);
+}
+
+function updateUI() {
+  document.getElementById('hungerVal').textContent = Math.round(state.hunger);
+  document.getElementById('happyVal').textContent = Math.round(state.happy);
+  document.getElementById('weightVal').textContent = Math.round(state.weight);
+  document.getElementById('hungerBar').style.width = state.hunger + '%';
+  document.getElementById('happyBar').style.width = state.happy + '%';
+  document.getElementById('weightBar').style.width = state.weight + '%';
+}
+
+// ===== 空腹タイマー (毎5秒で少しずつ減る) =====
+setInterval(() => {
+  state.hunger = Math.max(0, state.hunger - 8);
+  state.happy = Math.max(0, state.happy - 2);
+  if (state.hunger < 10) {
+    setStatus('おなかすいた～！！！');
+  }
+}, 5000);
+
+// ===== モーダル =====
+function showModal(title, msg) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = \`
+    <div class="modal-box">
+      <h2>\${title}</h2>
+      <p>\${msg}</p>
+      <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">OK</button>
+    </div>
+  \`;
+  document.body.appendChild(overlay);
+}
+
+// ===== 起動 =====
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
+`;
+
+  // ブラウザ環境で自動起動する場合
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    document.open();
+    document.write(GAME_HTML);
+    document.close();
+  } else if (typeof module !== 'undefined') {
+    // Node.js: HTMLファイルとして書き出し
+    const fs = require('fs');
+    const path = require('path');
+    const outPath = path.join(__dirname, 'shiraitchi.html');
+    fs.writeFileSync(outPath, GAME_HTML, 'utf8');
+    console.log('✅ しらいっち ゲームファイルを生成しました: ' + outPath);
+    console.log('ブラウザで shiraitchi.html を開いて遊んでください！');
+  }
+})();

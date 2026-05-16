@@ -3,69 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>8-BIT RETRO GAMES</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <title>箱根ゲームクリエイター</title>
+    <!-- SFC風ピクセルフォントの読み込み -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <header>
-        <h1>PIXEL ARCADE</h1>
-        <p>Gamepad Supported!</p>
-    </header>
+    <div class="container">
+        <header>
+            <h1 class="pixel-text shadow-text">箱根ゲームクリエイター</h1>
+            <p class="subtitle pixel-text">1つのページで6つのゲームが遊べるよ！</p>
+        </header>
 
-    <main class="game-container">
-        <!-- Playable Game Section -->
-        <section class="game-section playable">
-            <h2>1. Super Jump Bros (Play Now!)</h2>
-            <div class="game-wrapper" id="gameWrapper">
-                <canvas id="gameCanvas" width="800" height="400"></canvas>
-                <button id="fullscreenBtn" class="fullscreen-btn">全画面表示</button>
-            </div>
-            <p class="controls-info">操作方法: ゲームパッド（左右移動、Aボタン:ジャンプ、X/Bボタン:攻撃） または キーボード（矢印キー、スペース:ジャンプ、Zキー:攻撃）</p>
-        </section>
-
-        <!-- Daisuketchi Section -->
-        <section class="game-section playable" id="daisuketchi">
-            <h2>2. だいすけっち</h2>
-            <div class="daisuketchi-wrapper">
-                <div class="daisuketchi-screen">
-                    <canvas id="daisuketchiCanvas" class="daisuketchi-canvas" width="200" height="200"></canvas>
+        <main>
+            <div class="game-grid">
+                <!-- 1つ目のゲーム（そのまま遊べる） -->
+                <div class="game-card">
+                    <div class="game-screen playable" id="game-container-1">
+                        <iframe src="game1/index.html" id="game-iframe-1" width="100%" height="100%" frameborder="0" scrolling="no"></iframe>
+                        <button class="fullscreen-btn" onclick="toggleFullScreen('game-iframe-1')">⛶ 全画面</button>
+                    </div>
+                    <div class="game-info">
+                        <h2 class="pixel-text">アクションゲーム</h2>
+                        <p class="pixel-text">マリオ風！ファイアで敵をたおせ！</p>
+                    </div>
                 </div>
-                <div class="daisuketchi-buttons">
-                    <button id="btnFeed" class="daisuketchi-btn" title="ごはん">🍚</button>
-                    <button id="btnPlay" class="daisuketchi-btn" title="遊ぶ">⚾</button>
+
+                <!-- 2つ目のゲーム -->
+                <div class="game-card">
+                    <div class="game-screen playable" id="game-container-2">
+                        <iframe src="game2/index.html" id="game-iframe-2" width="100%" height="100%" frameborder="0" scrolling="no"></iframe>
+                        <button class="fullscreen-btn" onclick="toggleFullScreen('game-iframe-2')">⛶ 全画面</button>
+                    </div>
+                    <div class="game-info">
+                        <h2 class="pixel-text">しらいっち</h2>
+                        <p class="pixel-text">育成ゲーム！ごはんや掃除でお世話しよう！</p>
+                    </div>
                 </div>
-                <div class="daisuketchi-labels">
-                    <span>ごはん</span>
-                    <span>あそぶ</span>
+
+                <div class="game-card locked">
+                    <div class="game-screen locked-bg"><span class="question-mark">?</span></div>
+                    <div class="game-info"><h2 class="pixel-text">Coming Soon...</h2></div>
+                </div>
+
+                <div class="game-card locked">
+                    <div class="game-screen locked-bg"><span class="question-mark">?</span></div>
+                    <div class="game-info"><h2 class="pixel-text">Coming Soon...</h2></div>
+                </div>
+
+                <div class="game-card locked">
+                    <div class="game-screen locked-bg"><span class="question-mark">?</span></div>
+                    <div class="game-info"><h2 class="pixel-text">Coming Soon...</h2></div>
+                </div>
+
+                <div class="game-card locked">
+                    <div class="game-screen locked-bg"><span class="question-mark">?</span></div>
+                    <div class="game-info"><h2 class="pixel-text">Coming Soon...</h2></div>
                 </div>
             </div>
-            <p class="controls-info">スマホ対応: ボタンをタップしておじさんを育成しよう！</p>
-        </section>
+        </main>
+        
+        <footer>
+            <p class="pixel-text">© Hakone Game Creator Project</p>
+        </footer>
+    </div>
 
-        <section class="game-section coming-soon">
-            <h2>3. Space Invaders Clone</h2>
-            <div class="placeholder">
-                <p>ゲーム準備中...</p>
-            </div>
-        </section>
-
-        <section class="game-section coming-soon">
-            <h2>4. Puzzle Blocks</h2>
-            <div class="placeholder">
-                <p>ゲーム準備中...</p>
-            </div>
-        </section>
-
-        <section class="game-section coming-soon">
-            <h2>5. Adventure Quest</h2>
-            <div class="placeholder">
-                <p>ゲーム準備中...</p>
-            </div>
-        </section>
-    </main>
-
-    <script src="game.js"></script>
-    <script src="daisuketchi.js"></script>
+    <script>
+        function toggleFullScreen(elementId) {
+            var elem = document.getElementById(elementId);
+            if (!document.fullscreenElement) {
+                if (elem.requestFullscreen) {
+                    elem.requestFullscreen();
+                } else if (elem.webkitRequestFullscreen) { /* Safari */
+                    elem.webkitRequestFullscreen();
+                } else if (elem.msRequestFullscreen) { /* IE11 */
+                    elem.msRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+    </script>
 </body>
 </html>

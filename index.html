@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>8-BIT RETRO GAMES</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <h1>PIXEL ARCADE</h1>
+        <p>Gamepad Supported!</p>
+    </header>
+
+    <main class="game-container">
+        <!-- Playable Game Section -->
+        <section class="game-section playable">
+            <h2>1. Super Jump Bros (Play Now!)</h2>
+            <div class="game-wrapper" id="gameWrapper">
+                <canvas id="gameCanvas" width="800" height="400"></canvas>
+                <button id="fullscreenBtn" class="fullscreen-btn">全画面表示</button>
+            </div>
+            <p class="controls-info">操作方法: ゲームパッド（左右移動、Aボタン:ジャンプ、X/Bボタン:攻撃） または キーボード（矢印キー、スペース:ジャンプ、Zキー:攻撃）</p>
+        </section>
+
+        <!-- Coming Soon Sections -->
+        <section class="game-section coming-soon">
+            <h2>2. Pixel Racer</h2>
+            <div class="placeholder">
+                <p>ゲーム準備中...</p>
+            </div>
+        </section>
+
+        <section class="game-section coming-soon">
+            <h2>3. Space Invaders Clone</h2>
+            <div class="placeholder">
+                <p>ゲーム準備中...</p>
+            </div>
+        </section>
+
+        <section class="game-section coming-soon">
+            <h2>4. Puzzle Blocks</h2>
+            <div class="placeholder">
+                <p>ゲーム準備中...</p>
+            </div>
+        </section>
+
+        <section class="game-section coming-soon">
+            <h2>5. Adventure Quest</h2>
+            <div class="placeholder">
+                <p>ゲーム準備中...</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="game.js"></script>
+</body>
+</html>

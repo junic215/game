@@ -50,6 +50,36 @@ let nextPoopTime = 0;
 let isPoopWorld = false;
 let isEnteringPipe = false;
 
+// バーチャルパッド入力用
+let vInput = {
+    up: false,
+    down: false,
+    left: false,
+    right: false,
+    a: false,
+    b: false
+};
+
+function setupVirtualPad() {
+    const bindBtn = (id, key) => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        const press = (e) => { if(e.cancelable) e.preventDefault(); vInput[key] = true; };
+        const release = (e) => { if(e.cancelable) e.preventDefault(); vInput[key] = false; };
+        btn.addEventListener('touchstart', press, {passive: false});
+        btn.addEventListener('touchend', release, {passive: false});
+        btn.addEventListener('mousedown', press);
+        btn.addEventListener('mouseup', release);
+        btn.addEventListener('mouseleave', release);
+    };
+    bindBtn('btn-up', 'up');
+    bindBtn('btn-down', 'down');
+    bindBtn('btn-left', 'left');
+    bindBtn('btn-right', 'right');
+    bindBtn('btn-a', 'a');
+    bindBtn('btn-b', 'b');
+}
+
 function preload() {
     // マリオ風キャラクター
     const marioPalette = {
@@ -306,6 +336,9 @@ function create() {
     nextPoopTime = this.time.now + 15000;
     jumpMarkers = [];
 
+    // バーチャルパッドのセットアップ
+    setupVirtualPad();
+
     // フェードイン (真っ暗から明るくなる)
     this.cameras.main.fadeIn(500, 0, 0, 0);
 
@@ -498,7 +531,7 @@ function enterPipe(player, pipe) {
     if (isEnteringPipe) return;
 
     let pad = player.scene.input.gamepad.pad1;
-    let downPressed = cursors.down.isDown || (pad && pad.down);
+    let downPressed = cursors.down.isDown || (pad && pad.down) || vInput.down;
     
     // 土管の上に乗っていて、下キーを押したとき (判定を緩くしました)
     if (downPressed && player.body.touching.down && player.y < pipe.y) {
@@ -556,12 +589,12 @@ function update(time, delta) {
     }
 
     // プレイヤーの移動
-    if (cursors.left.isDown || padLeft) {
+    if (cursors.left.isDown || padLeft || vInput.left) {
         player.setVelocityX(-160);
         playerFacing = -1;
         player.flipX = true;
     }
-    else if (cursors.right.isDown || padRight) {
+    else if (cursors.right.isDown || padRight || vInput.right) {
         player.setVelocityX(160);
         playerFacing = 1;
         player.flipX = false;
@@ -571,7 +604,7 @@ function update(time, delta) {
     }
 
     // ジャンプ
-    if ((cursors.up.isDown || cursors.space.isDown || padJump) && player.body.touching.down) {
+    if ((cursors.up.isDown || cursors.space.isDown || padJump || vInput.up || vInput.a) && player.body.touching.down) {
         player.setVelocityY(-500);
         // ジャンプマーカーを記録（サラリーマンの追従用）
         jumpMarkers.push({ x: player.x, time: time });
@@ -642,7 +675,7 @@ function update(time, delta) {
     });
 
     // ファイアボール発射
-    if ((fireKey.isDown || padFire) && time > lastFired) {
+    if ((fireKey.isDown || padFire || vInput.b) && time > lastFired) {
         let fireball = fireballs.create(player.x, player.y, 'fireball');
         fireball.setVelocityX(300 * playerFacing);
         fireball.setVelocityY(-150); // 少し上に跳ねるように

@@ -72,19 +72,32 @@
 
     <script>
         function toggleFullScreen(elementId) {
-            var elem = document.getElementById(elementId);
-            if (!document.fullscreenElement) {
-                if (elem.requestFullscreen) {
-                    elem.requestFullscreen();
-                } else if (elem.webkitRequestFullscreen) { /* Safari */
-                    elem.webkitRequestFullscreen();
-                } else if (elem.msRequestFullscreen) { /* IE11 */
-                    elem.msRequestFullscreen();
-                }
-            } else {
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                }
+            var iframe = document.getElementById(elementId);
+            var container = iframe.parentElement;
+            var btn = container.querySelector('.fullscreen-btn');
+            
+            // 疑似フルスクリーン状態なら解除
+            if (container.classList.contains('fullscreen-mode')) {
+                container.classList.remove('fullscreen-mode');
+                // 標準APIのフルスクリーンも解除
+                if (document.exitFullscreen) document.exitFullscreen();
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+                // ボタンのテキストを戻す
+                if(btn) btn.innerText = "⛶ 全画面";
+                return;
+            }
+
+            // iOSなどフルスクリーンAPIが効かない場合のために、CSSクラスで強制的に全画面化する
+            container.classList.add('fullscreen-mode');
+            if(btn) btn.innerText = "✖ 閉じる";
+
+            // 一応標準APIも試す (PCやAndroid等向け)
+            if (container.requestFullscreen) {
+                container.requestFullscreen().catch(err => {});
+            } else if (container.webkitRequestFullscreen) {
+                container.webkitRequestFullscreen();
+            } else if (container.msRequestFullscreen) {
+                container.msRequestFullscreen();
             }
         }
     </script>

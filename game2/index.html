@@ -9,12 +9,19 @@
   body {
     background: #1a1a2e;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
     min-height: 100vh;
+    margin: 0;
+    overflow: hidden;
     font-family: 'Courier New', monospace;
     user-select: none;
+  }
+  #wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transform-origin: center center;
   }
   h1 {
     color: #e8c97a;
@@ -186,6 +193,7 @@
 </style>
 </head>
 <body>
+<div id="wrapper">
 <h1>🥚 しらいっち 🥚</h1>
 <div class="device">
   <div class="mode-indicator" id="modeLabel">NORMAL</div>
@@ -217,6 +225,7 @@
     <button class="btn" id="btnClean" title="そうじ">🧹</button>
   </div>
   <div class="status-msg" id="statusMsg">しらいっちがうまれた！</div>
+</div>
 </div>
 
 <script>
@@ -637,6 +646,16 @@ function showModal(title, msg) {
 
 // ===== 起動 =====
 requestAnimationFrame(gameLoop);
+
+// ===== 画面サイズに合わせてデバイスを縮小 =====
+function adjustDeviceScale() {
+  const wrapper = document.getElementById('wrapper');
+  // しらいっち全体に必要な幅(約320)と高さ(約420)
+  const scale = Math.min(1, window.innerWidth / 320, window.innerHeight / 420);
+  wrapper.style.transform = `scale(${scale})`;
+}
+window.addEventListener('resize', adjustDeviceScale);
+adjustDeviceScale();
 </script>
 </body>
 </html>

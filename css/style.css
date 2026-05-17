@@ -172,6 +172,34 @@ header::before {
     font-family: 'DotGothic16', sans-serif;
 }
 
+/* 疑似フルスクリーン用 (スマホ対応) */
+.game-screen.fullscreen-mode {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: none !important;
+    max-height: none !important;
+    z-index: 9999 !important;
+    aspect-ratio: auto !important; /* アスペクト比制限を解除して画面いっぱいに */
+    background: #000 !important;
+    border: none !important;
+}
+
+.game-screen.fullscreen-mode iframe {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.game-screen.fullscreen-mode .fullscreen-btn {
+    bottom: 20px;
+    right: 20px;
+    padding: 10px 15px;
+    font-size: 1.2rem;
+    background: rgba(255, 0, 0, 0.8);
+}
+
 /* Footer */
 footer {
     margin-top: 40px;

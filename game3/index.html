@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>だるまさんがころんだ 8BIT</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:#0a0a1a;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  min-height:100vh;
+  font-family:'Press Start 2P',monospace;
+  image-rendering:pixelated;
+}
+h1{color:#ffdd00;font-size:10px;text-align:center;margin-bottom:6px;
+   text-shadow:2px 2px 0 #c80000,4px 4px 0 #000;}
+#hud{display:flex;gap:12px;margin-bottom:5px;font-size:7px;color:#fff;}
+#hud span{background:#111;border:2px solid #555;padding:2px 7px;}
+#wrap{border:4px solid #ffdd00;
+  box-shadow:0 0 0 2px #000,0 0 0 5px #c80000,0 0 0 7px #000,0 0 28px #ffdd0055;
+  image-rendering:pixelated;}
+canvas{display:block;image-rendering:pixelated;}
+#ctrl{margin-top:6px;font-size:7px;color:#888;text-align:center;line-height:2;}
+</style>
+</head>
+<body>
+<h1>★ だるまさんがころんだ 8BIT ★</h1>
+<div id="hud">
+  <span>TIME:<span id="tm">000</span></span>
+  <span>POOP:<span id="pc">0</span></span>
+  <span>DIST:<span id="dt">0</span>%</span>
+</div>
+<div id="wrap"><canvas id="c"></canvas></div>
+<div id="ctrl">←→/AD:移動 &nbsp; SPACE/↑:ジャンプ &nbsp; CLICK:アクション</div>
+
+<script>
+// ============================================================
+// CANVAS SETUP  SFC風 256x144 × 3スケール
+// ============================================================
+const SCALE=3;
+const W=256, H=144;
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+canvas.width=W*SCALE; canvas.height=H*SCALE;
+ctx.scale(SCALE,SCALE);
+ctx.imageSmoothingEnabled=false;
+
+// ============================================================
+// カラーパレット
+// ============================================================
+const C={
+  sky0:'#90b8f8',sky1:'#6090f0',sky2:'#3868d8',
+  gr0:'#50b030',gr1:'#388018',gr2:'#205010',
+  dirt:'#a06828',dirt2:'#785018',
+  cl0:'#eef4ff',cl1:'#c0d0f0',
+  // ドラえもん (小さめ 10x14)
+  db0:'#10a0e0',db1:'#0878b8',db2:'#045080',
+  df0:'#f8d890',df1:'#d8a858',
+  dn:'#e81818',dw:'#f2f2f2',dm:'#181818',
+  dbl:'#f0c000',dbl2:'#a88000',
+  // のび太 (小さめ 8x14) 黄Tシャツ・青ハーフパンツ
+  ns0:'#f8c870',ns1:'#d89848',
+  nh:'#181818',
+  nsh0:'#f0d020',nsh1:'#c0a010',   // 黄色Tシャツ
+  np0:'#2050d0',np1:'#1030a0',     // 青ハーフパンツ
+  ngl:'#181818',
+  nbt:'#282828',                   // 靴
+  // うんこ (6x8)
+  pb0:'#7a4a2a',pb1:'#5a3018',pb2:'#3a1808',ph:'#a07050',
+  // 共通
+  bk:'#000000',wh:'#ffffff',
+  ye:'#ffdd00',rd:'#dd2222',gn:'#22dd44',
+  or:'#ff8800',pu:'#cc44ff',cy:'#44ddff',
+};
+
+// ============================================================
+// 描画ユーティリティ
+// ============================================================
+function r(x,y,w,h,c){if(w<=0||h<=0)return;ctx.fillStyle=c;ctx.fillRect(~~x,~~y,w,h);}
+function px(x,y,c){r(x,y,1,1,c);}
+function txt(s,x,y,c,sz=5){
+  ctx.fillStyle=C.bk;ctx.font=sz+'px "Press Start 2P"';ctx.fillText(s,~~x+1,~~y+1);
+  ctx.fillStyle=c;ctx.fillText(s,~~x,~~y);
+}
+function lerp(a,b,t){return (a+(b-a)*t)|0;}
+function hex2(n){return Math.max(0,Math.min(255,n|0)).toString(16).padStart(2,'0');}
+
+// ============================================================
+// ドラえもんスプライト 10x14px  (小さめ)
+//   facing=1:こちら  facing=-1:背中
+//   action: 0=通常, 1=驚き手あげ, 2=しゃがみ, 3=喜びジャンプ
+// ============================================================
+function drawDora(ox,oy,facing,action){
+  oy=~~oy; ox=~~ox;
+  const f=facing>0;
+  let yOff=0;
+  if(action===2) yOff=2;   // しゃがみ：少し下にずらす
+  if(action===3) yOff=-3;  // ジャンプ：少し上
+
+  // 耳
+  r(ox+1,oy+yOff,2,2,C.db0); r(ox+7,oy+yOff,2,2,C.db0);
+  // 頭
+  r(ox,oy+1+yOff,10,5,C.db0);
+  // 顔(白)
+  r(ox+1,oy+2+yOff,8,4,C.dw);
+  // 目
+  const eL=f?ox+2:ox+6, eR=f?ox+6:ox+2;
+  r(eL,oy+2+yOff,2,2,C.dw); r(eR,oy+2+yOff,2,2,C.dw);
+  px(f?ox+3:ox+7,oy+3+yOff,C.dm); px(f?ox+7:ox+3,oy+3+yOff,C.dm);
+  // 鼻
+  px(ox+4,oy+3+yOff,C.dn); px(ox+5,oy+3+yOff,C.dn);
+  // ひげ(正面のみ)
+  if(f){
+    r(ox+1,oy+5+yOff,2,1,C.dm); r(ox+7,oy+5+yOff,2,1,C.dm);
+  }
+  // 口
+  r(ox+2,oy+5+yOff,6,1,C.dm);
+  // 首輪(赤)
+  r(ox+1,oy+6+yOff,8,1,C.rd);
+  // 体
+  r(ox+1,oy+7+yOff,8,5,C.db0);
+  // 腹(白)
+  r(ox+2,oy+8+yOff,6,3,C.dw);
+  // ポケット
+  r(ox+3,oy+9+yOff,4,2,C.db1);
+  // ベル
+  r(ox+4,oy+7+yOff,2,1,C.dbl); px(ox+4,oy+8+yOff,C.dbl2);
+  // 手(action別)
+  if(action===1){
+    // 驚き：両手上げ
+    r(ox-1,oy+6+yOff,2,3,C.db0); r(ox+9,oy+6+yOff,2,3,C.db0);
+    r(ox-1,oy+5+yOff,2,2,C.df0); r(ox+9,oy+5+yOff,2,2,C.df0);
+  }else if(action===2){
+    // しゃがみ：腕横
+    r(ox-1,oy+7+yOff,2,2,C.db0); r(ox+9,oy+7+yOff,2,2,C.db0);
+  }else{
+    // 通常
+    r(ox,oy+8+yOff,1,3,C.db0); r(ox+9,oy+8+yOff,1,3,C.db0);
+  }
+  // 足
+  if(action===2){
+    // しゃがみ：足たたむ
+    r(ox+2,oy+12+yOff,2,2,C.db1); r(ox+6,oy+12+yOff,2,2,C.db1);
+  }else{
+    r(ox+2,oy+12+yOff,3,2,C.db1); r(ox+6,oy+12+yOff,3,2,C.db1);
+    r(ox+1,oy+13+yOff,4,1,C.db2); r(ox+6,oy+13+yOff,4,1,C.db2);
+  }
+}
+
+// ============================================================
+// のび太スプライト 8x14px (小さめ)
+//   黄Tシャツ・青ハーフパンツ
+// ============================================================
+function drawNobita(ox,oy,walk,jump){
+  ox=~~ox; oy=~~oy;
+  const lA=jump?-2:(walk===1?1:0);
+  const lB=jump?-2:(walk===1?0:1);
+  // 髪
+  r(ox,oy,8,2,C.nh);
+  r(ox+1,oy+2,6,1,C.nh);
+  // 顔
+  r(ox+1,oy+2,6,3,C.ns0);
+  // 耳
+  px(ox,oy+3,C.ns1); px(ox+7,oy+3,C.ns1);
+  // 眼鏡フレーム
+  r(ox+1,oy+3,2,2,C.ngl); r(ox+5,oy+3,2,2,C.ngl);
+  px(ox+3,oy+4,C.ngl); px(ox+4,oy+4,C.ngl);
+  // 目(白目)
+  px(ox+2,oy+4,C.wh); px(ox+6,oy+4,C.wh);
+  // 瞳
+  px(ox+2,oy+4,C.bk); px(ox+6,oy+4,C.bk);
+  // 口
+  r(ox+2,oy+5,4,1,C.bk);
+  // 黄色Tシャツ
+  r(ox+1,oy+6,6,4,C.nsh0);
+  r(ox,oy+7,8,3,C.nsh1);
+  // 青ハーフパンツ
+  r(ox+1,oy+10,6,2,C.np0);
+  r(ox,oy+11,8,1,C.np1);
+  // 足
+  r(ox+1,oy+12+lA,2,2,C.np0);
+  r(ox+5,oy+12+lB,2,2,C.np0);
+  // 靴
+  r(ox,oy+13+lA,3,1,C.nbt);
+  r(ox+5,oy+13+lB,3,1,C.nbt);
+}
+
+// ============================================================
+// うんこスプライト 6x8px
+// ============================================================
+function drawPoop(ox,oy){
+  ox=~~ox; oy=~~oy;
+  // ━━ うんこ (8x13px) リアル積み上げ3段 ━━
+  // 影
+  r(ox+1,oy+12,7,1,'#1a0a00');
+  // ベース段（一番太い）
+  r(ox,  oy+8, 9,4, C.pb0);
+  r(ox+1,oy+8, 7,1, C.pb1);   // 上面ハイライト
+  px(ox+1,oy+9, C.ph);         // 光沢
+  r(ox,  oy+11,9,1, C.pb2);   // 底面影
+  // 中段
+  r(ox+1,oy+5, 7,4, C.pb1);
+  r(ox+2,oy+5, 5,1, C.pb0);   // 上面
+  px(ox+2,oy+6, C.ph);
+  r(ox+1,oy+8, 7,1, C.pb2);
+  // 上段（細い）
+  r(ox+2,oy+2, 5,4, C.pb0);
+  r(ox+3,oy+2, 3,1, C.pb1);
+  px(ox+3,oy+3, C.ph);
+  r(ox+2,oy+5, 5,1, C.pb2);
+  // 先端（ちょこん）
+  r(ox+3,oy,   3,3, C.pb1);
+  px(ox+4,oy,  C.ph);
+  r(ox+3,oy+2, 3,1, C.pb2);
+  // 曲線感を出すコーナー削り
+  px(ox,  oy+8, C.bk); px(ox+8,oy+8, C.bk);
+  px(ox,  oy+11,C.bk); px(ox+8,oy+11,C.bk);
+  px(ox+1,oy+5, C.bk); px(ox+7,oy+5, C.bk);
+  px(ox+2,oy+2, C.bk); px(ox+6,oy+2, C.bk);
+  // 臭気線（くさそう）
+  px(ox+1,oy-2,'#aaaa44'); px(ox+4,oy-3,'#aaaa44'); px(ox+7,oy-2,'#aaaa44');
+  // 顔 (ベース段の中央)
+  px(ox+2,oy+9, C.bk); px(ox+6,oy+9, C.bk);  // 目
+  r(ox+3, oy+10,3,1,  C.bk);                   // 口
+}
+
+// ============================================================
+// 背景描画 (スクロールオフセット付き)
+// ============================================================
+const GH=~~(H*0.65); // 地面Y (画面座標)
+
+function drawBG(camX){
+  // 空グラデ
+  for(let y=0;y<GH;y++){
+    const t=y/GH;
+    r(0,y,W,1,'#'+hex2(lerp(0x90,0x38,t))+hex2(lerp(0xb8,0x68,t))+hex2(lerp(0xf8,0xd8,t)));
+  }
+  // 雲 (parallax: 空間的に遅くスクロール)
+  const cx=camX*0.3;
+  drawCloud(((20-cx)%W+W)%W, 12);
+  drawCloud(((90-cx)%W+W)%W, 8);
+  drawCloud(((160-cx)%W+W)%W, 15);
+  drawCloud(((230-cx)%W+W)%W, 6);
+  // 遠景山 (parallax slower)
+  const mx=camX*0.5;
+  drawMtn(~~(((40-mx)%W+W)%W),  GH, 22,11,'#8090c8');
+  drawMtn(~~(((100-mx)%W+W)%W), GH, 18,9, '#90a0d8');
+  drawMtn(~~(((170-mx)%W+W)%W), GH, 26,13,'#7888c0');
+  drawMtn(~~(((230-mx)%W+W)%W), GH, 20,10,'#8898cc');
+  // 地面
+  r(0,GH,W,H-GH,C.gr0);
+  r(0,GH,W,2,C.gr1);
+  r(0,GH+2,W,2,C.gr2);
+  // 地面タイル (スクロール)
+  for(let tx=-(camX%16);tx<W;tx+=16){
+    r(tx,GH+4,14,2,C.gr1);
+    r(tx+2,GH+6,8,2,C.gr2);
+  }
+  // 土
+  r(0,GH+8,W,H-GH-8,C.dirt);
+  for(let tx=-(camX%24);tx<W;tx+=24){
+    r(tx,GH+9,22,1,C.dirt2);
+    r(tx+3,GH+11,14,1,C.dirt);
+  }
+}
+
+function drawCloud(x,y){
+  r(x+2,y,7,2,C.cl1); r(x+5,y,6,2,C.cl1);
+  r(x,y+2,13,3,C.cl0); r(x+1,y+5,11,2,C.cl0);
+  r(x+2,y+7,9,1,C.cl1);
+  px(x+3,y+2,C.wh); px(x+7,y,C.wh);
+}
+
+function drawMtn(x,y,w,h,c){
+  for(let i=0;i<h;i++){
+    const bw=~~(w*i/h);
+    // 画面外はラップ
+    const dx=x-bw;
+    r(dx,y-i,bw*2,1,c);
+    if(dx<0) r(dx+W,y-i,bw*2,1,c);
+    if(dx+bw*2>W) r(dx-W,y-i,bw*2,1,c);
+  }
+  for(let i=0;i<~~(h*0.35);i++){
+    const bw=~~(w*i/h);
+    const dx=x-bw;
+    r(dx,y-h+i,bw*2,1,'#e0ecff');
+    if(dx<0) r(dx+W,y-h+i,bw*2,1,'#e0ecff');
+    if(dx+bw*2>W) r(dx-W,y-h+i,bw*2,1,'#e0ecff');
+  }
+}
+
+// ============================================================
+// ゲーム定数
+// ============================================================
+const GROUND = GH-14;      // のび太地面Y (画面座標)
+const COURSE  = 1800;      // コース総距離(ワールド座標)
+const DORA_WX = 20;        // ドラえもんのワールドX(固定)
+const START_WX= COURSE-10; // のび太スタートワールドX
+const GOAL_WX = DORA_WX+14;// ゴール(タッチ)判定
+
+const GRAVITY = 0.45;
+const JUMP_V  = -8.5;
+const SPD     = 1.8;
+const NW=8, NH=14;
+const PW=9, PH=13;
+const DW=10,DH=14;
+
+// ============================================================
+// ゲーム状態
+// ============================================================
+let G={};
+function reset(){
+  G={
+    phase:'title',
+    // のび太
+    wx:START_WX, wy:GROUND,
+    vy:0, grnd:true,
+    wf:0, wt:0,
+    // カメラ
+    camX:0,
+    // うんこ(ワールド座標)
+    poops:[],
+    poopN:0,
+    // キー
+    keys:{L:false,R:false,J:false},
+    // チャント
+    looking:false,
+    cTimer:0,
+    lTimer:0,
+    cText:'',cIdx:0,cTick:0,
+    // ドラえもんアクション
+    doraFacing:-1,    // -1=背中, 1=こちら
+    doraAction:0,     // 0=通常,1=驚き,2=しゃがみ,3=ジャンプ
+    doraActionT:0,    // アクション残りフレーム
+    doraSeqIdx:0,     // 振り向きシーケンスのステップ
+    // UI
+    bText:'',bTimer:0,
+    startT:null,elapsed:0,
+    flashT:0,
+    frame:0,
+    reason:'',
+    // 紙吹雪
+    confetti:[],
+  };
+}
+reset();
+
+const CHANT='だるまさんがころんだ';
+
+// ============================================================
+// うんこスポーン (ランダム位置)
+// ============================================================
+function spawnPoop(){
+  // のび太〜ドラえもんの間のランダム位置
+  // 既存うんこ・スタート位置と被らないよう複数候補
+  const margin=20;
+  const zoneL=DORA_WX+DW+margin;
+  const zoneR=G.wx - margin;
+  if(zoneR<=zoneL) return;
+
+  // 最大10個まで
+  for(let attempt=0;attempt<15;attempt++){
+    const wx=zoneL+Math.random()*(zoneR-zoneL);
+    // 他のうんことかぶらないか
+    let ok=true;
+    for(const p of G.poops){
+      if(Math.abs(p.wx-wx)<14){ok=false;break;}
+    }
+    if(ok){
+      G.poops.push({wx:~~wx, wy:GROUND+NH-PH-1});
+      G.poopN++;
+      break;
+    }
+  }
+}
+
+// ============================================================
+// チャント & 振り向きシーケンス
+// ============================================================
+function startChant(){
+  G.looking=false;
+  G.doraFacing=-1;
+  G.doraAction=0;
+  G.doraActionT=0;
+  G.cText=''; G.cIdx=0; G.cTick=0;
+  G.cTimer=2000+Math.random()*2500;
+}
+
+// ドラえもんの振り向きシーケンス（複数アクション連鎖）
+// 例: 驚き→正面→しゃがみ→正面 など
+const DORA_SEQUENCES=[
+  // [facing, action, durationFrames]
+  [[1,1,20],[1,0,50],[-1,0,0]],            // 驚いてこちらを向く
+  [[1,0,60],[-1,0,0]],                      // ゆっくりこちらを向く
+  [[1,2,30],[1,0,30],[-1,0,0]],            // しゃがんでこちら
+  [[1,1,15],[1,3,20],[1,0,30],[-1,0,0]],  // 驚き→ジャンプ→こちら
+  [[1,0,20],[1,2,20],[1,0,30],[-1,0,0]],  // こちら→しゃがみ→こちら
+];
+
+function startLooking(){
+  G.looking=true;
+  G.flashT=20;
+  G.bText='POOP!';G.bTimer=70;
+  spawnPoop();
+
+  // ランダムシーケンス
+  const seq=DORA_SEQUENCES[~~(Math.random()*DORA_SEQUENCES.length)];
+  G.doraSeq=seq;
+  G.doraSeqIdx=0;
+  applyDoraSeqStep();
+
+  // 振り向き持続(シーケンス合計+少し)
+  let total=seq.reduce((s,st)=>s+st[2],0)+40;
+  G.lTimer=total;
+}
+
+function applyDoraSeqStep(){
+  const seq=G.doraSeq;
+  if(!seq||G.doraSeqIdx>=seq.length) return;
+  const step=seq[G.doraSeqIdx];
+  G.doraFacing=step[0];
+  G.doraAction=step[1];
+  G.doraActionT=step[2];
+}
+
+// ============================================================
+// メインループ
+// ============================================================
+let last=0;
+function loop(ts){
+  const dt=Math.min(ts-last,50); last=ts;
+  update(dt); draw();
+  requestAnimationFrame(loop);
+}
+
+function update(dt){
+  G.frame++;
+  if(G.phase!=='playing') return;
+  if(G.startT) G.elapsed=~~((performance.now()-G.startT)/1000);
+
+  const moving=G.keys.L||G.keys.R;
+
+  // 振り向き中に動いたら即アウト
+  if(G.looking&&moving){end('caught');return;}
+
+  // 移動
+  if(!G.looking){
+    if(G.keys.L) G.wx=Math.max(G.wx-SPD, GOAL_WX);
+    if(G.keys.R) G.wx=Math.min(G.wx+SPD, COURSE);
+  }
+
+  // ジャンプ
+  if(G.keys.J&&G.grnd){G.vy=JUMP_V;G.grnd=false;G.keys.J=false;}
+
+  // 重力
+  G.vy+=GRAVITY;
+  G.wy+=G.vy;
+  if(G.wy>=GROUND){G.wy=GROUND;G.vy=0;G.grnd=true;}
+
+  // 歩きアニメ
+  if(moving&&G.grnd){G.wt++;if(G.wt>8){G.wt=0;G.wf=(G.wf+1)%3;}}
+  else if(!moving) G.wf=0;
+
+  // カメラ: のび太を画面中央より少し右に追従
+  const targetCam=G.wx - W*0.65;
+  G.camX=Math.max(0,Math.min(targetCam, COURSE-W));
+
+  // チャントフェーズ
+  if(!G.looking){
+    G.cTimer-=dt;
+    G.cTick+=dt;
+    if(G.cTick>110&&G.cIdx<CHANT.length){G.cIdx++;G.cText=CHANT.slice(0,G.cIdx);G.cTick=0;}
+    if(G.cTimer<=0) startLooking();
+  }else{
+    // ドラアクションシーケンス進行
+    G.doraActionT--;
+    if(G.doraActionT<=0){
+      G.doraSeqIdx++;
+      if(G.doraSeqIdx<G.doraSeq.length){
+        applyDoraSeqStep();
+      }
+    }
+    G.lTimer--;
+    if(G.lTimer<=0) startChant();
+  }
+
+  if(G.flashT>0) G.flashT--;
+  if(G.bTimer>0) G.bTimer--;
+
+  // うんこ衝突
+  const nL=G.wx, nR=G.wx+NW, nT=G.wy+4, nB=G.wy+NH;
+  for(const p of G.poops){
+    if(nL<p.wx+PW&&nR>p.wx&&nT<p.wy+PH&&nB>p.wy){
+      end('poop'); return;
+    }
+  }
+
+  // ゴール
+  if(G.wx<=GOAL_WX){end('clear');return;}
+
+  // 紙吹雪更新
+  for(const p of G.confetti){
+    p.x+=p.vx; p.y+=p.vy; p.vy+=0.15;
+    if(p.y>H) p.y=-5;
+  }
+
+  // HUD更新
+  document.getElementById('tm').textContent=String(G.elapsed).padStart(3,'0');
+  document.getElementById('pc').textContent=G.poopN;
+  const dist=~~((1-(G.wx-DORA_WX)/(COURSE-DORA_WX))*100);
+  document.getElementById('dt').textContent=Math.max(0,Math.min(100,dist));
+}
+
+// ============================================================
+// 描画
+// ============================================================
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  drawBG(G.camX);
+
+  // ゴールライン(ワールド→スクリーン変換)
+  const goalSX=GOAL_WX-G.camX+DW+4;
+  for(let y=0;y<GH;y+=4) r(goalSX,y,1,2,C.rd);
+  txt('GOAL',goalSX-12,8,C.ye,5);
+
+  // うんこ(ワールド→スクリーン)
+  for(const p of G.poops){
+    const sx=p.wx-G.camX;
+    if(sx>-PW&&sx<W+PW) drawPoop(sx,p.wy);
+  }
+
+  // ドラえもん(固定ワールドX=DORA_WX)
+  const doraSX=DORA_WX-G.camX;
+  if(doraSX>-DW&&doraSX<W+DW) drawDora(doraSX,GH-DH,G.doraFacing,G.doraAction);
+
+  // のび太(スクリーン座標: wx-camX)
+  if(G.phase!=='title'){
+    const nsx=G.wx-G.camX;
+    drawNobita(nsx,G.wy,G.wf,!G.grnd);
+  }
+
+  // 吹き出し(POOP! → のび太頭上に固定表示)
+  if(G.bTimer>0&&G.phase==='playing'){
+    bubble(W/2-16, 4, 'POOP!', C.ye);
+  }
+
+  // チャント吹き出し → 画面中央上部に固定表示
+  if(G.phase==='playing'&&!G.looking&&G.cText){
+    const bw=G.cText.length*6+10;
+    const bx=~~(W/2 - bw/2);
+    const by=18;
+    r(bx-1,by-1,bw+2,13,C.bk);
+    r(bx,  by,  bw,  12, C.wh);
+    ctx.fillStyle=C.bk;ctx.font='5px "Press Start 2P"';
+    ctx.fillText(G.cText,bx+5,by+9);
+  }
+
+  // ミニマップ (上部)
+  drawMinimap();
+
+  // 振り向きオーバーレイ
+  if(G.phase==='playing'&&G.looking){
+    r(0,0,W,H,'rgba(255,30,30,0.12)');
+    if(G.flashT>8) r(0,0,W,H,'rgba(255,0,0,0.28)');
+    txt('STOP!!',W/2-21,H/2-30,C.rd,7);
+  }
+
+  // タイトル
+  if(G.phase==='title'){
+    r(0,0,W,H,'rgba(0,0,0,0.55)');
+    txt('DARUMA GAME',W/2-52,24,C.ye,7);
+    txt('DORAEMON 8BIT',W/2-56,38,C.cl0,6);
+    drawDora(W/2-5,GH-DH,-1,0);
+    drawNobita(W-24,GROUND,~~(G.frame/10)%3,false);
+    r(W/2-58,52,116,18,C.bk); r(W/2-57,53,114,16,C.db0);
+    txt('PRESS SPACE / CLICK',W/2-72,65,C.ye,5);
+    txt('TOUCH DORAEMON=WIN',6,H-30,C.gn,5);
+    txt('AVOID POOP / STOP OK',6,H-20,C.ye,5);
+    txt('JUMP:SPACE  MOVE:ARROW',6,H-10,C.cl0,5);
+  }
+
+  // ゲームオーバー
+  if(G.phase==='over'){
+    r(0,0,W,H,'rgba(0,0,0,0.75)');
+    txt('GAME OVER',W/2-40,H/2-22,C.rd,8);
+    const m=G.reason==='poop'?'STEPPED ON POOP!':'CAUGHT MOVING!';
+    txt(m,W/2-~~(m.length*3),H/2-4,C.ye,5);
+    txt('TIME:'+String(G.elapsed).padStart(3,'0'),W/2-32,H/2+12,C.wh,5);
+    txt('PRESS SPACE',W/2-46,H/2+28,C.gn,5);
+  }
+
+  // クリア
+  if(G.phase==='clear'){
+    r(0,0,W,H,'rgba(0,8,0,0.7)');
+    // 紙吹雪
+    for(const p of G.confetti){
+      r(~~p.x,~~p.y,2,2,p.c);
+    }
+    txt('STAGE CLEAR!',W/2-54,H/2-24,C.ye,8);
+    txt('NOBITA WINS!',W/2-50,H/2-6,C.gn,6);
+    txt('TIME:'+String(G.elapsed).padStart(3,'0'),W/2-32,H/2+10,C.wh,5);
+    txt('POOP:'+G.poopN+'  DODGED!',W/2-52,H/2+22,C.ye,5);
+    txt('PRESS SPACE',W/2-46,H/2+36,C.cl0,5);
+  }
+}
+
+// ============================================================
+// ミニマップ (右上)
+// ============================================================
+function drawMinimap(){
+  const mx=W-62, my=2, mw=60, mh=7;
+  r(mx-1,my-1,mw+2,mh+2,C.bk);
+  r(mx,my,mw,mh,C.db2);
+  // のび太位置
+  const np=~~((1-G.wx/COURSE)*mw);
+  r(mx+np,my,2,mh,C.ye);
+  // ドラ位置(左端)
+  r(mx,my,3,mh,C.db0);
+  // うんこ位置
+  for(const p of G.poops){
+    const pp=~~((1-p.wx/COURSE)*mw);
+    px(mx+pp,my+2,C.pb0); px(mx+pp,my+3,C.pb0);
+  }
+}
+
+// ============================================================
+// 吹き出し
+// ============================================================
+function bubble(x,y,s,bc=C.wh){
+  const w=s.length*6+8;
+  r(x-1,y-1,w+2,12,C.bk);
+  r(x,y,w,11,bc);
+  r(x+2,y+11,2,2,bc);
+  ctx.fillStyle=C.bk;ctx.font='5px "Press Start 2P"';
+  ctx.fillText(s,x+4,y+8);
+}
+
+// ============================================================
+// ゲーム終了
+// ============================================================
+function end(reason){
+  G.reason=reason;
+  G.phase=reason==='clear'?'clear':'over';
+  if(reason==='clear'){
+    const cols=[C.ye,C.gn,C.rd,C.or,C.pu,C.cy];
+    G.confetti=Array.from({length:30},(_,i)=>({
+      x:Math.random()*W, y:Math.random()*H*0.5,
+      vx:(Math.random()-0.5)*1.5, vy:Math.random()*1+0.5,
+      c:cols[i%cols.length]
+    }));
+  }
+}
+
+// ============================================================
+// 入力
+// ============================================================
+function action(){
+  if(G.phase==='title'){
+    G.phase='playing';
+    G.startT=performance.now();
+    G.poops=[];G.poopN=0;
+    document.getElementById('tm').textContent='000';
+    document.getElementById('pc').textContent='0';
+    document.getElementById('dt').textContent='0';
+    startChant();
+  }else if(G.phase==='over'||G.phase==='clear'){
+    reset();
+  }else if(G.phase==='playing'){
+    if(G.grnd){G.keys.J=true;}
+  }
+}
+
+document.addEventListener('keydown',e=>{
+  const k=e.key;
+  if(k==='ArrowLeft'||k==='a'||k==='A')  G.keys.L=true;
+  if(k==='ArrowRight'||k==='d'||k==='D') G.keys.R=true;
+  if(k===' '||k==='ArrowUp'||k==='w'||k==='W'){action();e.preventDefault();}
+  if(['ArrowLeft','ArrowRight','ArrowUp',' '].includes(k)) e.preventDefault();
+});
+document.addEventListener('keyup',e=>{
+  const k=e.key;
+  if(k==='ArrowLeft'||k==='a'||k==='A')  G.keys.L=false;
+  if(k==='ArrowRight'||k==='d'||k==='D') G.keys.R=false;
+});
+canvas.addEventListener('click',action);
+
+let tx0=0;
+canvas.addEventListener('touchstart',e=>{tx0=e.touches[0].clientX;action();e.preventDefault();},{passive:false});
+canvas.addEventListener('touchmove',e=>{
+  const dx=e.touches[0].clientX-tx0;
+  G.keys.L=dx<-15;G.keys.R=dx>15;
+  e.preventDefault();
+},{passive:false});
+canvas.addEventListener('touchend',()=>{G.keys.L=false;G.keys.R=false;});
+
+// ============================================================
+// START
+// ============================================================
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

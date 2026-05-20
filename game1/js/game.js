@@ -64,10 +64,10 @@ function setupVirtualPad() {
     const bindBtn = (id, key) => {
         const btn = document.getElementById(id);
         if (!btn) return;
-        const press = (e) => { if(e.cancelable) e.preventDefault(); vInput[key] = true; };
-        const release = (e) => { if(e.cancelable) e.preventDefault(); vInput[key] = false; };
-        btn.addEventListener('touchstart', press, {passive: false});
-        btn.addEventListener('touchend', release, {passive: false});
+        const press = (e) => { if (e.cancelable) e.preventDefault(); vInput[key] = true; };
+        const release = (e) => { if (e.cancelable) e.preventDefault(); vInput[key] = false; };
+        btn.addEventListener('touchstart', press, { passive: false });
+        btn.addEventListener('touchend', release, { passive: false });
         btn.addEventListener('mousedown', press);
         btn.addEventListener('mouseup', release);
         btn.addEventListener('mouseleave', release);
@@ -135,6 +135,33 @@ function preload() {
         '.333333..333333.'
     ];
     this.textures.generate('enemy', { data: goombaData, pixelWidth: 2, palette: goombaPalette });
+
+    // カメ風敵キャラクター
+    const turtlePalette = {
+        '1': '#00a800', // 緑(甲羅)
+        '2': '#ffcc99', // 肌色
+        '3': '#000000', // 黒(目)
+        '4': '#ffffff', // 白
+    };
+    const turtleData = [
+        '........2222....',
+        '.......222222...',
+        '.......223223...',
+        '......1122222...',
+        '.....1111222....',
+        '....111111......',
+        '...11111111.....',
+        '..1111111111....',
+        '.111111111111...',
+        '.111111111111...',
+        '..22......22....',
+        '..22......22....',
+        '..22......22....',
+        '..22......22....',
+        '................',
+        '................'
+    ];
+    this.textures.generate('turtle', { data: turtleData, pixelWidth: 2, palette: turtlePalette });
 
     // レンガブロック
     const blockPalette = {
@@ -333,7 +360,7 @@ function create() {
     isGoal = false;
     gameOver = false;
     isEnteringPipe = false;
-    nextPoopTime = this.time.now + 15000;
+    nextPoopTime = this.time.now + 5000;
     jumpMarkers = [];
 
     // バーチャルパッドのセットアップ
@@ -344,7 +371,7 @@ function create() {
 
     // 背景
     let bg = this.add.image(400, 300, 'bg').setScrollFactor(0); // スクロールしない背景
-    
+
     if (isPoopWorld) {
         this.cameras.main.setBackgroundColor('#5C3A21'); // 背景色を茶色に
         bg.setTint(0x8B5A2B); // 画像全体を茶色っぽく染める
@@ -354,20 +381,25 @@ function create() {
     platforms = this.physics.add.staticGroup();
 
     // 地面を敷き詰める (コースを長くして落とし穴を追加)
-    for (let i = 0; i < 150; i++) {
+    for (let i = 0; i < 300; i++) {
         // 落とし穴
         if (i > 20 && i < 23) continue;
         if (i > 50 && i < 55) continue;
         if (i > 80 && i < 84) continue;
         if (i > 110 && i < 116) continue;
+        if (i > 150 && i < 155) continue;
+        if (i > 180 && i < 183) continue;
+        if (i > 210 && i < 216) continue;
+        if (i > 250 && i < 254) continue;
+        if (i > 280 && i < 285) continue;
         platforms.create(i * 32 + 16, 584, 'block');
     }
-    
+
     // 足場を追加
     platforms.create(300, 450, 'block');
     platforms.create(332, 450, 'block');
     platforms.create(364, 450, 'block');
-    
+
     platforms.create(600, 350, 'block');
     platforms.create(632, 350, 'block');
     platforms.create(664, 350, 'block');
@@ -379,7 +411,7 @@ function create() {
     platforms.create(2000, 450, 'block');
     platforms.create(2032, 450, 'block');
     platforms.create(2064, 450, 'block');
-    
+
     platforms.create(2800, 400, 'block');
     platforms.create(2900, 300, 'block');
     platforms.create(3000, 200, 'block');
@@ -392,9 +424,25 @@ function create() {
     platforms.create(4032, 350, 'block');
     platforms.create(4064, 350, 'block');
 
+    platforms.create(4800, 400, 'block');
+    platforms.create(4900, 300, 'block');
+    platforms.create(5000, 200, 'block');
+    platforms.create(5500, 450, 'block');
+    platforms.create(5532, 450, 'block');
+    platforms.create(5564, 450, 'block');
+    platforms.create(6000, 350, 'block');
+    platforms.create(6032, 350, 'block');
+    platforms.create(6064, 350, 'block');
+    platforms.create(7000, 450, 'block');
+    platforms.create(7100, 350, 'block');
+    platforms.create(7200, 250, 'block');
+    platforms.create(8000, 450, 'block');
+    platforms.create(8032, 450, 'block');
+    platforms.create(8064, 450, 'block');
+
     // ウンコ世界なら、地面と足場をすべてウンコテクスチャに変更
     if (isPoopWorld) {
-        platforms.children.iterate(function(child) {
+        platforms.children.iterate(function (child) {
             child.setTexture('poop');
         });
     }
@@ -407,19 +455,36 @@ function create() {
     q2.setData('used', false);
     let q3 = qBlocks.create(2400, 400, 'qBlock');
     q3.setData('used', false);
+    let q4 = qBlocks.create(3200, 400, 'qBlock');
+    q4.setData('used', false);
+    let q5 = qBlocks.create(4000, 400, 'qBlock');
+    q5.setData('used', false);
+    let q6 = qBlocks.create(5600, 400, 'qBlock');
+    q6.setData('used', false);
+    let q7 = qBlocks.create(6400, 400, 'qBlock');
+    q7.setData('used', false);
+    let q8 = qBlocks.create(7600, 400, 'qBlock');
+    q8.setData('used', false);
+    let q9 = qBlocks.create(8400, 400, 'qBlock');
+    q9.setData('used', false);
 
     // 土管
     pipes = this.physics.add.staticGroup();
     pipes.create(1200, 552, 'pipe').setScale(2).refreshBody();
     pipes.create(2200, 552, 'pipe').setScale(2).refreshBody();
     pipes.create(3200, 552, 'pipe').setScale(2).refreshBody();
+    pipes.create(4200, 552, 'pipe').setScale(2).refreshBody();
+    pipes.create(5200, 552, 'pipe').setScale(2).refreshBody();
+    pipes.create(6200, 552, 'pipe').setScale(2).refreshBody();
+    pipes.create(7400, 552, 'pipe').setScale(2).refreshBody();
+    pipes.create(8600, 552, 'pipe').setScale(2).refreshBody();
 
     if (isPoopWorld) {
-        pipes.children.iterate(function(child) {
+        pipes.children.iterate(function (child) {
             child.setTint(0x8B5A2B); // 土管もうんこ色に
         });
-        qBlocks.children.iterate(function(child) {
-            child.setTint(0x8B5A2B); 
+        qBlocks.children.iterate(function (child) {
+            child.setTint(0x8B5A2B);
         });
     }
 
@@ -429,17 +494,26 @@ function create() {
     player.setCollideWorldBounds(false); // 世界の果てはないようにする（落ちたらミス）
 
     // カメラがプレイヤーを追従
-    this.cameras.main.setBounds(0, 0, 4800, 600); // ステージの長さを4800pxに
+    this.cameras.main.setBounds(0, 0, 9600, 600); // ステージの長さを9600pxに
     this.cameras.main.startFollow(player);
 
     // 敵グループ
     enemies = this.physics.add.group();
-    
+
     // 敵を適度に配置
-    let enemyXPositions = [500, 800, 1200, 1500, 1800, 2200, 2500, 2900, 3300, 3800, 4200, 4400];
-    enemyXPositions.forEach(x => {
-        let enemy = enemies.create(x, 500, 'enemy');
-        enemy.setVelocityX(-50);
+    let enemyPositions = [
+        { x: 500, type: 'enemy' }, { x: 800, type: 'enemy' }, { x: 1200, type: 'turtle' },
+        { x: 1500, type: 'enemy' }, { x: 1800, type: 'turtle' }, { x: 2200, type: 'enemy' },
+        { x: 2500, type: 'turtle' }, { x: 2900, type: 'enemy' }, { x: 3300, type: 'turtle' },
+        { x: 3800, type: 'enemy' }, { x: 4200, type: 'turtle' }, { x: 4400, type: 'enemy' },
+        { x: 4800, type: 'turtle' }, { x: 5200, type: 'enemy' }, { x: 5600, type: 'turtle' },
+        { x: 6000, type: 'enemy' }, { x: 6400, type: 'turtle' }, { x: 6800, type: 'enemy' },
+        { x: 7200, type: 'turtle' }, { x: 7600, type: 'enemy' }, { x: 8000, type: 'turtle' },
+        { x: 8400, type: 'enemy' }, { x: 8800, type: 'turtle' }, { x: 9200, type: 'enemy' }
+    ];
+    enemyPositions.forEach(e => {
+        let enemy = enemies.create(e.x, 500, e.type);
+        enemy.setVelocityX(e.type === 'turtle' ? -40 : -50);
         if (isPoopWorld) enemy.setTint(0x8B5A2B); // 敵もうんこ色に
     });
 
@@ -454,18 +528,18 @@ function create() {
 
     // ゴール
     goals = this.physics.add.staticGroup();
-    let flag = goals.create(4600, 536, 'flag');
+    let flag = goals.create(9400, 536, 'flag');
 
     // 当たり判定
     this.physics.add.collider(player, platforms);
     this.physics.add.collider(enemies, platforms);
     this.physics.add.collider(fireballs, platforms, fireballHitWall, null, this);
     this.physics.add.collider(poops, platforms);
-    
+
     this.physics.add.collider(player, qBlocks, hitQBlock, null, this);
     this.physics.add.collider(salarymenGroup, platforms);
     this.physics.add.collider(salarymenGroup, qBlocks);
-    
+
     this.physics.add.collider(player, pipes, enterPipe, null, this); // プレイヤーと土管の衝突判定にコールバックを追加
 
     // プレイヤーと敵の判定
@@ -501,7 +575,7 @@ function hitQBlock(player, block) {
 function spawnSalaryman(x, y, scene) {
     let sm = salarymenGroup.create(x, y, 'salaryman');
     sm.setBounce(0.1);
-    sm.setData('nextPoopTime', scene.time.now + 15000);
+    sm.setData('nextPoopTime', scene.time.now + 5000);
 
     // 吹き出しを追加
     let text = scene.add.text(x, y - 20, 'オレは、ダイヤモンドしらいし！', {
@@ -511,7 +585,7 @@ function spawnSalaryman(x, y, scene) {
         padding: { x: 5, y: 3 },
         fontFamily: 'sans-serif'
     }).setOrigin(0.5, 1);
-    
+
     sm.setData('speechText', text);
 
     // 3秒後にフェードアウト
@@ -532,21 +606,21 @@ function enterPipe(player, pipe) {
 
     let pad = player.scene.input.gamepad.pad1;
     let downPressed = cursors.down.isDown || (pad && pad.down) || vInput.down;
-    
+
     // 土管の上に乗っていて、下キーを押したとき (判定を緩くしました)
     if (downPressed && player.body.touching.down && player.y < pipe.y) {
         isEnteringPipe = true;
-        
+
         // プレイヤーの物理演算を無効化
         player.setVelocity(0, 0);
         player.body.enable = false;
-        
+
         // ズボッと沈むアニメーション
         player.scene.tweens.add({
             targets: player,
             y: pipe.y, // 土管の中心付近まで沈む
             duration: 1000,
-            onComplete: function() {
+            onComplete: function () {
                 // フェードアウト
                 player.scene.cameras.main.fadeOut(500, 0, 0, 0);
                 player.scene.cameras.main.once('camerafadeoutcomplete', function () {
@@ -564,14 +638,14 @@ function update(time, delta) {
         return;
     }
 
-    // 15秒に1回うんこ(プレイヤー)
+    // 5秒に1回うんこ(プレイヤー)
     if (time > nextPoopTime) {
         let poop = poops.create(player.x, player.y, 'poop');
         poop.setBounce(0.5);
         // 軽くジャンプ
         player.setVelocityY(-200);
-        
-        nextPoopTime = time + 15000;
+
+        nextPoopTime = time + 5000;
     }
 
     // ゲームパッドの入力取得
@@ -617,7 +691,7 @@ function update(time, delta) {
     let smIndex = 0;
     salarymenGroup.children.iterate(function (sm) {
         if (!sm) return;
-        
+
         // 穴に落ちたら消滅
         if (sm.y > 600) {
             let text = sm.getData('speechText');
@@ -654,7 +728,7 @@ function update(time, delta) {
                 break;
             }
         }
-        
+
         // 壁にぶつかっている場合もジャンプ
         if ((sm.body.blocked.right || sm.body.blocked.left) && sm.body.touching.down) {
             shouldJump = true;
@@ -670,7 +744,7 @@ function update(time, delta) {
             let poop = poops.create(sm.x, sm.y, 'poop');
             poop.setBounce(0.5);
             sm.setVelocityY(-200); // 軽くジャンプ
-            sm.setData('nextPoopTime', time + 15000);
+            sm.setData('nextPoopTime', time + 5000);
         }
     });
 
@@ -726,11 +800,11 @@ function gameOverHandler(scene) {
     gameOver = true;
     scene.physics.pause();
     player.setTint(0xff0000);
-    
+
     // ゲームオーバーテキスト
-    let text = scene.add.text(scene.cameras.main.centerX, scene.cameras.main.centerY, 'GAME OVER\nClick to Restart', { 
-        fontSize: '48px', 
-        fill: '#f00', 
+    let text = scene.add.text(scene.cameras.main.centerX, scene.cameras.main.centerY, 'GAME OVER\nClick to Restart', {
+        fontSize: '48px',
+        fill: '#f00',
         align: 'center',
         fontFamily: 'sans-serif',
         fontStyle: 'bold',
@@ -753,10 +827,10 @@ function goalHandler(player, goal) {
     let scene = player.scene;
     scene.physics.pause();
     player.setTint(0x00ff00); // ゴール時は緑に
-    
-    let text = scene.add.text(scene.cameras.main.centerX, scene.cameras.main.centerX, 'STAGE CLEAR!\nClick to Restart', { 
-        fontSize: '48px', 
-        fill: '#0f0', 
+
+    let text = scene.add.text(scene.cameras.main.centerX, scene.cameras.main.centerX, 'STAGE CLEAR!\nClick to Restart', {
+        fontSize: '48px',
+        fill: '#0f0',
         align: 'center',
         fontFamily: 'sans-serif',
         fontStyle: 'bold',

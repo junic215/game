@@ -23,10 +23,11 @@
             <div class="game-grid">
                 <!-- 1つ目のゲーム（そのまま遊べる） -->
                 <div class="game-card">
-                    <div class="game-screen playable" id="game-container-1">
-                        <iframe src="game1/index.html" id="game-iframe-1" width="100%" height="100%" frameborder="0"
-                            scrolling="no"></iframe>
-                        <button class="fullscreen-btn" onclick="toggleFullScreen('game-iframe-1')">⛶ 全画面</button>
+                    <div class="game-screen playable thumb-square" id="game-container-1">
+                        <div class="thumbnail" id="thumb-1" onclick="playGame(1, 'game1/index.html')" style="background-image: url('01.png');">
+                        </div>
+                        <iframe id="game-iframe-1" width="100%" height="100%" frameborder="0" scrolling="no" style="display:none;"></iframe>
+                        <button class="fullscreen-btn" id="fs-btn-1" onclick="toggleFullScreen('game-iframe-1')" style="display:none;">⛶ 全画面</button>
                     </div>
                     <div class="game-info">
                         <h2 class="pixel-text">SUPER UNKO BROTHERS.</h2>
@@ -36,10 +37,11 @@
 
                 <!-- 2つ目のゲーム -->
                 <div class="game-card">
-                    <div class="game-screen playable" id="game-container-2">
-                        <iframe src="game2/index.html" id="game-iframe-2" width="100%" height="100%" frameborder="0"
-                            scrolling="no"></iframe>
-                        <button class="fullscreen-btn" onclick="toggleFullScreen('game-iframe-2')">⛶ 全画面</button>
+                    <div class="game-screen playable thumb-square" id="game-container-2">
+                        <div class="thumbnail" id="thumb-2" onclick="playGame(2, 'game2/index.html')" style="background-image: url('02.png');">
+                        </div>
+                        <iframe id="game-iframe-2" width="100%" height="100%" frameborder="0" scrolling="no" style="display:none;"></iframe>
+                        <button class="fullscreen-btn" id="fs-btn-2" onclick="toggleFullScreen('game-iframe-2')" style="display:none;">⛶ 全画面</button>
                     </div>
                     <div class="game-info">
                         <h2 class="pixel-text">しらいっち</h2>
@@ -150,6 +152,21 @@
             } else if (container.msRequestFullscreen) {
                 container.msRequestFullscreen();
             }
+        }
+
+        function playGame(id, url) {
+            var thumb = document.getElementById('thumb-' + id);
+            if(thumb) thumb.style.display = 'none';
+            var iframe = document.getElementById('game-iframe-' + id);
+            if(iframe) {
+                iframe.src = url;
+                iframe.style.display = 'block';
+            }
+            var fsBtn = document.getElementById('fs-btn-' + id);
+            if(fsBtn) fsBtn.style.display = 'block';
+
+            // サムネイルクリック時に自動で全画面モードにする
+            toggleFullScreen('game-iframe-' + id);
         }
     </script>
 </body>

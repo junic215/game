@@ -11,7 +11,8 @@ body{
   background:#0a0a1a;
   display:flex;flex-direction:column;
   align-items:center;justify-content:center;
-  min-height:100vh;
+  height:100vh;
+  margin:0; overflow:hidden;
   font-family:'Press Start 2P',monospace;
   image-rendering:pixelated;
 }
@@ -21,8 +22,18 @@ h1{color:#ffdd00;font-size:10px;text-align:center;margin-bottom:6px;
 #hud span{background:#111;border:2px solid #555;padding:2px 7px;}
 #wrap{border:4px solid #ffdd00;
   box-shadow:0 0 0 2px #000,0 0 0 5px #c80000,0 0 0 7px #000,0 0 28px #ffdd0055;
-  image-rendering:pixelated;}
-canvas{display:block;image-rendering:pixelated;}
+  image-rendering:pixelated;
+  max-width: 95vw;
+  max-height: calc(100vh - 80px);
+  display: flex;
+}
+canvas{
+  display:block;
+  image-rendering:pixelated;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
 #ctrl{margin-top:6px;font-size:7px;color:#888;text-align:center;line-height:2;}
 </style>
 </head>

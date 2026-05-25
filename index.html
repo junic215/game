@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,6 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
 </head>
+
 <body>
     <div class="container">
         <header>
@@ -22,11 +24,12 @@
                 <!-- 1つ目のゲーム（そのまま遊べる） -->
                 <div class="game-card">
                     <div class="game-screen playable" id="game-container-1">
-                        <iframe src="game1/index.html" id="game-iframe-1" width="100%" height="100%" frameborder="0" scrolling="no"></iframe>
+                        <iframe src="game1/index.html" id="game-iframe-1" width="100%" height="100%" frameborder="0"
+                            scrolling="no"></iframe>
                         <button class="fullscreen-btn" onclick="toggleFullScreen('game-iframe-1')">⛶ 全画面</button>
                     </div>
                     <div class="game-info">
-                        <h2 class="pixel-text">アクションゲーム</h2>
+                        <h2 class="pixel-text">SUPER UNKO BROTHERS.</h2>
                         <p class="pixel-text">マリオ風！ファイアで敵をたおせ！</p>
                     </div>
                 </div>
@@ -34,7 +37,8 @@
                 <!-- 2つ目のゲーム -->
                 <div class="game-card">
                     <div class="game-screen playable" id="game-container-2">
-                        <iframe src="game2/index.html" id="game-iframe-2" width="100%" height="100%" frameborder="0" scrolling="no"></iframe>
+                        <iframe src="game2/index.html" id="game-iframe-2" width="100%" height="100%" frameborder="0"
+                            scrolling="no"></iframe>
                         <button class="fullscreen-btn" onclick="toggleFullScreen('game-iframe-2')">⛶ 全画面</button>
                     </div>
                     <div class="game-info">
@@ -46,7 +50,8 @@
                 <!-- 3つ目のゲーム -->
                 <div class="game-card">
                     <div class="game-screen playable" id="game-container-3">
-                        <iframe src="game3/index.html" id="game-iframe-3" width="100%" height="100%" frameborder="0" scrolling="no"></iframe>
+                        <iframe src="game3/index.html" id="game-iframe-3" width="100%" height="100%" frameborder="0"
+                            scrolling="no"></iframe>
                         <button class="fullscreen-btn" onclick="toggleFullScreen('game-iframe-3')">⛶ 全画面</button>
                     </div>
                     <div class="game-info">
@@ -59,7 +64,8 @@
                 <!-- 4つ目のゲーム -->
                 <div class="game-card">
                     <div class="game-screen playable" id="game-container-4">
-                        <iframe src="game4/index.html" id="game-iframe-4" width="100%" height="100%" frameborder="0" scrolling="no"></iframe>
+                        <iframe src="game4/index.html" id="game-iframe-4" width="100%" height="100%" frameborder="0"
+                            scrolling="no"></iframe>
                         <button class="fullscreen-btn" onclick="toggleFullScreen('game-iframe-4')">⛶ 全画面</button>
                     </div>
                     <div class="game-info">
@@ -71,7 +77,8 @@
                 <!-- 5つ目のゲーム -->
                 <div class="game-card">
                     <div class="game-screen playable" id="game-container-5">
-                        <iframe src="game5/index.html" id="game-iframe-5" width="100%" height="100%" frameborder="0" scrolling="no"></iframe>
+                        <iframe src="game5/index.html" id="game-iframe-5" width="100%" height="100%" frameborder="0"
+                            scrolling="no"></iframe>
                         <button class="fullscreen-btn" onclick="toggleFullScreen('game-iframe-5')">⛶ 全画面</button>
                     </div>
                     <div class="game-info">
@@ -81,18 +88,34 @@
                 </div>
 
 
-                <div class="game-card locked">
-                    <div class="game-screen locked-bg"><span class="question-mark">?</span></div>
-                    <div class="game-info"><h2 class="pixel-text">Coming Soon...</h2></div>
+                <!-- 6つ目のゲーム -->
+                <div class="game-card">
+                    <div class="game-screen playable" id="game-container-6">
+                        <iframe src="game6/index.html" id="game-iframe-6" width="100%" height="100%" frameborder="0"
+                            scrolling="no"></iframe>
+                        <button class="fullscreen-btn" onclick="toggleFullScreen('game-iframe-6')">⛶ 全画面</button>
+                    </div>
+                    <div class="game-info">
+                        <h2 class="pixel-text">麗しの摩天楼黙示録</h2>
+                        <p class="pixel-text">着替えて街へ繰り出せ！おじさん格闘アクション！</p>
+                    </div>
                 </div>
 
-                <div class="game-card locked">
-                    <div class="game-screen locked-bg"><span class="question-mark">?</span></div>
-                    <div class="game-info"><h2 class="pixel-text">Coming Soon...</h2></div>
+                <!-- 7つ目のゲーム -->
+                <div class="game-card">
+                    <div class="game-screen playable" id="game-container-7">
+                        <iframe src="game7/game.html" id="game-iframe-7" width="100%" height="100%" frameborder="0"
+                            scrolling="no"></iframe>
+                        <button class="fullscreen-btn" onclick="toggleFullScreen('game-iframe-7')">⛶ 全画面</button>
+                    </div>
+                    <div class="game-info">
+                        <h2 class="pixel-text">おじさんバトル</h2>
+                        <p class="pixel-text">仲間と共闘！巨大顔とスカートおじさんを倒せ！</p>
+                    </div>
                 </div>
             </div>
         </main>
-        
+
         <footer>
             <p class="pixel-text">© Hakone Game Creator Project</p>
         </footer>
@@ -103,7 +126,7 @@
             var iframe = document.getElementById(elementId);
             var container = iframe.parentElement;
             var btn = container.querySelector('.fullscreen-btn');
-            
+
             // 疑似フルスクリーン状態なら解除
             if (container.classList.contains('fullscreen-mode')) {
                 container.classList.remove('fullscreen-mode');
@@ -111,17 +134,17 @@
                 if (document.exitFullscreen) document.exitFullscreen();
                 else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
                 // ボタンのテキストを戻す
-                if(btn) btn.innerText = "⛶ 全画面";
+                if (btn) btn.innerText = "⛶ 全画面";
                 return;
             }
 
             // iOSなどフルスクリーンAPIが効かない場合のために、CSSクラスで強制的に全画面化する
             container.classList.add('fullscreen-mode');
-            if(btn) btn.innerText = "✖ 閉じる";
+            if (btn) btn.innerText = "✖ 閉じる";
 
             // 一応標準APIも試す (PCやAndroid等向け)
             if (container.requestFullscreen) {
-                container.requestFullscreen().catch(err => {});
+                container.requestFullscreen().catch(err => { });
             } else if (container.webkitRequestFullscreen) {
                 container.webkitRequestFullscreen();
             } else if (container.msRequestFullscreen) {
@@ -130,4 +153,5 @@
         }
     </script>
 </body>
+
 </html>

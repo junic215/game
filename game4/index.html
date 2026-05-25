@@ -12,5 +12,67 @@
     <canvas id="gameCanvas" width="800" height="500"></canvas>
     
     <script src="game.js"></script>
+    <!-- スマホ用バーチャルパッド追加 -->
+    <style>
+        #virtual-pad {
+            position: absolute; bottom: 20px; left: 0; width: 100%; height: 150px;
+            pointer-events: none; display: flex; justify-content: space-between;
+            padding: 0 20px; box-sizing: border-box; z-index: 1000;
+        }
+        .pad-btn {
+            pointer-events: auto; background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.4); border-radius: 50%;
+            color: white; font-size: 24px; font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
+            user-select: none; -webkit-user-select: none;
+        }
+        .pad-btn:active { background: rgba(255, 255, 255, 0.5); }
+        #dpad { position: relative; width: 150px; height: 150px; }
+        #dpad .pad-btn { position: absolute; width: 50px; height: 50px; }
+        #btn-up { top: 0; left: 50px; } #btn-down { bottom: 0; left: 50px; }
+        #btn-left { top: 50px; left: 0; } #btn-right { top: 50px; right: 0; }
+        #action-pad { position: relative; width: 150px; height: 150px; }
+        #action-pad .pad-btn { position: absolute; width: 60px; height: 60px; font-size: 16px; }
+        #btn-b { bottom: 20px; left: 0; background: rgba(255,0,0,0.3); border-color: rgba(255,0,0,0.5);}
+        #btn-a { top: 20px; right: 0; background: rgba(0,255,0,0.3); border-color: rgba(0,255,0,0.5);}
+        @media (hover: hover) and (pointer: fine) { #virtual-pad { display: none; } }
+    </style>
+    <div id="virtual-pad">
+        <div id="dpad">
+            <div id="btn-up" class="pad-btn">▲</div><div id="btn-down" class="pad-btn">▼</div>
+            <div id="btn-left" class="pad-btn">◀</div><div id="btn-right" class="pad-btn">▶</div>
+        </div>
+        <div id="action-pad">
+            <div id="btn-b" class="pad-btn">B</div><div id="btn-a" class="pad-btn">A</div>
+        </div>
+    </div>
+    <script>
+    function setupVirtualPad() {
+        const triggerKey = (type, codes, keys) => {
+            if (!Array.isArray(codes)) codes = [codes];
+            if (!Array.isArray(keys)) keys = [keys];
+            for (let i = 0; i < codes.length; i++) {
+                const event = new KeyboardEvent(type, { code: codes[i], key: keys[i], bubbles: true, cancelable: true });
+                document.dispatchEvent(event); window.dispatchEvent(event);
+            }
+        };
+        const bindBtn = (id, codes, keys) => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            const press = (e) => { if (e.cancelable) e.preventDefault(); triggerKey('keydown', codes, keys); };
+            const release = (e) => { if (e.cancelable) e.preventDefault(); triggerKey('keyup', codes, keys); };
+            btn.addEventListener('touchstart', press, { passive: false });
+            btn.addEventListener('touchend', release, { passive: false });
+            btn.addEventListener('mousedown', press);
+            btn.addEventListener('mouseup', release);
+            btn.addEventListener('mouseleave', release);
+        };
+        bindBtn('btn-up', 'ArrowUp', 'ArrowUp'); bindBtn('btn-down', 'ArrowDown', 'ArrowDown');
+        bindBtn('btn-left', 'ArrowLeft', 'ArrowLeft'); bindBtn('btn-right', 'ArrowRight', 'ArrowRight');
+        bindBtn('btn-a', ['Space', 'KeyX'], [' ', 'x']);
+        bindBtn('btn-b', ['Enter', 'KeyZ'], ['Enter', 'z']);
+    }
+    setupVirtualPad();
+    </script>
 </body>
 </html>

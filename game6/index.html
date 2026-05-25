@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>しらいし：麗しの摩天楼黙示録</title>
+    <style>
+        body {
+            background-color: #05050a;
+            color: white;
+            font-family: 'MS Gothic', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        h1 {
+            font-size: 24px;
+            margin: 0 0 5px 0;
+            color: #ff3366;
+            text-shadow: 3px 3px 0px #000;
+            letter-spacing: 2px;
+        }
+        .instructions {
+            font-size: 13px;
+            color: #bbb;
+            margin-bottom: 10px;
+            background: #10101f;
+            padding: 6px 20px;
+            border: 1px solid #334;
+            border-radius: 4px;
+            text-align: center;
+        }
+        canvas {
+            image-rendering: pixelated;
+            border: 6px solid #2a2a3a;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.9);
+            background-color: #000;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>UNCLE SHIRAISHI: METROPOLIS</h1>
+    <div id="infoText" class="instructions">ロッカー室：【←】【→】服を選ぶ ／ 【スペースキー】出撃！</div>
+    
+    <canvas id="gameCanvas" width="320" height="240" style="width: 640px; height: 480px;"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let gameMode = 'LOCKER_ROOM'; // 'LOCKER_ROOM', 'STREET_BATTLE', 'GAME_OVER'
+
+        let score = 0;
+        let walkFrame = 0;
+        let cameraX = 0;
+
+        // プレイヤーおじさん（しらいし）
+        const player = {
+            x: 60, y: 140, yVel: 0,
+            isJumping: false, width: 32, height: 64,
+            dir: 1, isMoving: false,
+            isAttacking: false, attackTimer: 0,
+            hp: 100, maxHp: 100, style: 0
+        };
+
+        const wardrobe = [
+            { name: "伝統的なセーラー服", type: "SAILOR" },
+            { name: "清楚な吊りスカート", type: "SUSPENDER" },
+            { name: "ゴスロリ風フリルドレス", type: "GOTH" },
+            { name: "情熱のチャイナドレス", type: "CHINA" },
+            { name: "魅惑 of バニーガール", type: "BUNNY" },
+            { name: "哀愁のくたびれたスーツ", type: "SUIT" }
+        ];
+
+        let enemies = [];
+        const maxEnemies = 2;
+        let items = []; // ドロップアイテム管理用
+        const keys = { ArrowLeft: false, ArrowRight: false };
+
+        // 背景配置固定用
+        const skylineFar = [];
+        const skylineNear = [];
+        for(let i=0; i<30; i++) {
+            skylineFar.push({ x: i * 40, w: 25 + Math.random()*25, h: 50 + Math.random()*40 });
+            skylineNear.push({ x: i * 55, w: 35 + Math.random()*30, h: 70 + Math.random()*50 });
+        }
+
+        function spawnEnemy() {
+            if (enemies.length < maxEnemies && gameMode === 'STREET_BATTLE') {
+                enemies.push({
+                    x: player.x + canvas.width + Math.random() * 60,
+                    y: 140, width: 32, height: 64,
+                    hp: 30, maxHp: 30, dir: -1,
+                    isHit: false, hitTimer: 0,
+                    isAttacking: false, 
+                    attackCooldown: 10 + Math.random() * 15, // 大幅に短縮（超アグレッシブ）
+                    walkFrame: 0
+                });
+            }
+        }
+
+        // キー入力
+        document.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
+            
+            if (gameMode === 'GAME_OVER') {
+                if (e.key === ' ') {
+                    player.hp = player.maxHp;
+                    score = 0;
+                    enemies = [];
+                    items = [];
+                    cameraX = 0;
+                    gameMode = 'LOCKER_ROOM';
+                    document.getElementById('infoText').innerHTML = "ロッカー室：【←】【→】服を選ぶ ／ 【スペースキー】出撃！";
+                }
+                return;
+            }
+
+            if (gameMode === 'LOCKER_ROOM') {
+                if (e.key === 'ArrowLeft') player.style = (player.style - 1 + wardrobe.length) % wardrobe.length;
+                if (e.key === 'ArrowRight') player.style = (player.style + 1) % wardrobe.length;
+                if (e.key === ' ') {
+                    gameMode = 'STREET_BATTLE';
+                    player.x = 50;
+                    document.getElementById('infoText').innerHTML = "街頭の死闘：【←】【→】移動 ／ 【Z】拳を叩き込む ／ 【X】ジャンプ";
+                }
+            } else if (gameMode === 'STREET_BATTLE') {
+                if (e.key === 'ArrowLeft') keys.ArrowLeft = true;
+                if (e.key === 'ArrowRight') keys.ArrowRight = true;
+                if (key === 'z' && !player.isAttacking) {
+                    player.isAttacking = true;
+                    player.attackTimer = 8;
+                    playerPunch();
+                }
+                if (key === 'x' && !player.isJumping) {
+                    player.isJumping = true;
+                    player.yVel = -6.5;
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft') keys.ArrowLeft = false;
+            if (e.key === 'ArrowRight') keys.ArrowRight = false;
+        });
+
+        function playerPunch() {
+            const reach = 24;
+            const attackX = player.dir === 1 ? player.x + 18 : player.x - reach;
+
+            enemies.forEach(enemy => {
+                if (enemy.hp > 0 && !enemy.isHit) {
+                    const xHit = (attackX + reach > enemy.x && attackX < enemy.x + enemy.width);
+                    const yHit = (player.y + player.height > enemy.y && player.y < enemy.y + enemy.height);
+
+                    if (xHit && yHit) {
+                        enemy.hp -= 10;
+                        enemy.isHit = true;
+                        enemy.hitTimer = 10;
+                        enemy.x += player.dir * 15;
+                        if (enemy.hp <= 0) {
+                            score += 200;
+                            // 50%の確率でケーキをドロップ
+                            if (Math.random() < 0.5) {
+                                items.push({ x: enemy.x + 8, y: 185, width: 16, height: 16, type: 'CAKE' });
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function update() {
+            if (gameMode !== 'STREET_BATTLE') {
+                walkFrame++;
+                return;
+            }
+
+            player.isMoving = false;
+            if (!player.isAttacking) {
+                if (keys.ArrowLeft) {
+                    player.x -= 2.2; player.dir = -1; player.isMoving = true;
+                } else if (keys.ArrowRight) {
+                    player.x += 2.2; player.dir = 1; player.isMoving = true;
+                }
+            }
+
+            if (player.isJumping) {
+                player.yVel += 0.38;
+                player.y += player.yVel;
+                if (player.y >= 140) { player.y = 140; player.isJumping = false; }
+            }
+
+            if (player.isAttacking) {
+                player.attackTimer--;
+                if (player.attackTimer <= 0) player.isAttacking = false;
+            }
+
+            if (player.x - cameraX > 200) cameraX = player.x - 200;
+            if (player.x - cameraX < 60) cameraX = player.x - 60;
+            if (cameraX < 0) cameraX = 0;
+
+            // ケーキの取得判定
+            items.forEach((item, index) => {
+                const xHit = (player.x + player.width > item.x && player.x < item.x + item.width);
+                const yHit = (player.y + player.height > item.y && player.y < item.y + item.height);
+                if (xHit && yHit) {
+                    if (item.type === 'CAKE') {
+                        player.hp = Math.min(player.maxHp, player.hp + 30); // HP30回復
+                        score += 50;
+                    }
+                    items.splice(index, 1); // 食べたアイテムを消去
+                }
+            });
+
+            // 敵AIの更新（超攻撃的）
+            enemies.forEach((enemy, index) => {
+                if (enemy.hp <= 0) {
+                    enemy.y += 4;
+                    if (enemy.y > canvas.height) enemies.splice(index, 1);
+                    return;
+                }
+                enemy.walkFrame++;
+
+                if (enemy.isHit) {
+                    enemy.hitTimer--;
+                    if (enemy.hitTimer <= 0) enemy.isHit = false;
+                } else {
+                    let dist = Math.abs(enemy.x - player.x);
+                    if (dist > 20) {
+                        enemy.isAttacking = false;
+                        if (enemy.x > player.x) { enemy.x -= 1.0; enemy.dir = -1; } // 移動速度を少しアップ
+                        else { enemy.x += 1.0; enemy.dir = 1; }
+                    } else {
+                        // 間合いに入ったら超高速連打
+                        enemy.attackCooldown--;
+                        if (enemy.attackCooldown <= 0) {
+                            enemy.isAttacking = true;
+                            enemy.attackCooldown = 15 + Math.random() * 15; // クールダウンを大幅短縮！
+                            enemyAttack(enemy);
+                        }
+                        if (enemy.attackCooldown < 10) {
+                            enemy.isAttacking = false; 
+                        }
+                    }
+                }
+            });
+
+            spawnEnemy();
+            if (player.isMoving) walkFrame++;
+        }
+
+        function enemyAttack(enemy) {
+            if (gameMode !== 'STREET_BATTLE') return;
+
+            const reach = 22;
+            const attackX = enemy.dir === 1 ? enemy.x + 15 : enemy.x - reach;
+            const xHit = (attackX + reach > player.x && attackX < player.x + player.width);
+            const yHit = (enemy.y + enemy.height > player.y && enemy.y < player.y + player.height);
+
+            if (xHit && yHit && !player.isJumping) {
+                player.hp -= 10; // 連打されるので1発のダメージは10に調整
+                player.x += enemy.dir * 8; // のけぞり
+                if (player.hp <= 0) {
+                    player.hp = 0;
+                    gameMode = 'GAME_OVER';
+                    document.getElementById('infoText').innerHTML = "無念…！ 【スペースキー】でロッカー室からリトライ";
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (gameMode === 'LOCKER_ROOM') {
+                drawLockerRoom();
+            } else {
+                drawStreetScene();
+                if (gameMode === 'GAME_OVER') {
+                    ctx.fillStyle = 'rgba(200, 0, 0, 0.4)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = '#fff'; ctx.font = '16px sans-serif';
+                    ctx.fillText("GAME OVER", 110, 110);
+                }
+            }
+        }
+
+        function drawLockerRoom() {
+            ctx.fillStyle = '#22252a'; ctx.fillRect(0, 0, canvas.width, 180);
+            ctx.fillStyle = '#15171c'; ctx.fillRect(0, 180, canvas.width, 60);
+            for(let i=0; i<4; i++) {
+                let lx = 20 + i*45;
+                ctx.fillStyle = '#505865'; ctx.fillRect(lx, 40, 35, 120);
+                ctx.fillStyle = '#383e48'; ctx.fillRect(lx+2, 42, 31, 116);
+                ctx.fillStyle = '#1c1f24'; ctx.fillRect(lx+6, 50, 4, 15); ctx.fillRect(lx+26, 95, 3, 10);
+            }
+            drawHDUncle(150, 110, 1, player.style, false, true); // 名前表示はバトルのみ
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.fillRect(10, 185, 300, 45);
+            ctx.strokeStyle = '#ff3366'; ctx.strokeRect(10, 185, 300, 45);
+            ctx.fillStyle = '#fff'; ctx.font = '11px sans-serif';
+            ctx.fillText(`装備: ${wardrobe[player.style].name}`, 20, 202);
+            ctx.fillStyle = '#ffaa33'; ctx.font = '9px sans-serif';
+            ctx.fillText("【スペース】でこれに決めて、街へ殴り込み！", 20, 220);
+        }
+
+        function drawStreetScene() {
+            // 1. 夜空
+            ctx.fillStyle = '#06060f'; ctx.fillRect(0, 0, canvas.width, 140);
+            
+            // 2. 遠景ビル
+            ctx.save();
+            ctx.translate(-cameraX * 0.3, 0);
+            ctx.fillStyle = '#111220';
+            skylineFar.forEach(b => {
+                ctx.fillRect(b.x, 140 - b.h, b.w, b.h);
+                ctx.fillStyle = '#222744';
+                if(b.w > 30) {
+                    ctx.fillRect(b.x + 5, 150 - b.h, 2, 4);
+                    ctx.fillRect(b.x + 12, 165 - b.h, 2, 4);
+                }
+                ctx.fillStyle = '#111220';
+            });
+            ctx.restore();
+
+            // 3. 近景摩天楼
+            ctx.save();
+            ctx.translate(-cameraX * 0.7, 0);
+            skylineNear.forEach(b => {
+                ctx.fillStyle = '#1b1d30'; ctx.fillRect(b.x, 140 - b.h, b.w, b.h);
+                ctx.fillStyle = '#282c44'; ctx.fillRect(b.x, 140 - b.h, b.w, 1); ctx.fillRect(b.x + b.w - 1, 140 - b.h, 1, b.h);
+
+                for(let wx = b.x + 4; wx < b.x + b.w - 4; wx += 10) {
+                    for(let wy = 140 - b.h + 8; wy < 130; wy += 14) {
+                        let rand = Math.sin(wx * wy);
+                        if (rand > 0.2) { ctx.fillStyle = '#ffe066'; ctx.fillRect(wx, wy, 4, 6); } 
+                        else if (rand > -0.1) { ctx.fillStyle = '#ff55aa'; ctx.fillRect(wx, wy, 4, 6); } 
+                        else if (rand > -0.4) { ctx.fillStyle = '#55ccff'; ctx.fillRect(wx, wy, 4, 6); }
+                    }
+                }
+            });
+            ctx.restore();
+
+            // 4. ストリート（バトルエリア）
+            ctx.save();
+            ctx.translate(-cameraX, 0);
+            
+            // アスファルト
+            ctx.fillStyle = '#2d2e38'; ctx.fillRect(0, 140, cameraX+canvas.width, 100);
+            ctx.fillStyle = '#181921'; ctx.fillRect(0, 140, cameraX+canvas.width, 5);
+            ctx.fillStyle = '#444655';
+            for (let r = 0; r < cameraX + canvas.width + 100; r += 60) { ctx.fillRect(r, 185, 30, 4); }
+
+            // アイテム（ケーキ）の描画
+            items.forEach(item => {
+                if (item.type === 'CAKE') {
+                    // ドット絵ショートケーキ
+                    ctx.fillStyle = '#ffffff'; ctx.fillRect(item.x + 2, item.y + 6, 12, 8); // スポンジ
+                    ctx.fillStyle = '#e74c3c'; ctx.fillRect(item.x + 6, item.y + 2, 4, 4);   // イチゴ
+                    ctx.fillStyle = '#ff88aa'; ctx.fillRect(item.x + 2, item.y + 9, 12, 2); // ジャム層
+                }
+            });
+
+            // キャラクターたち
+            enemies.forEach(enemy => drawSailorEnemy(enemy));
+            drawHDUncle(player.x, player.y, player.dir, player.style, player.isAttacking, true);
+
+            ctx.restore();
+
+            // UI
+            ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fillRect(10, 8, 120, 26);
+            ctx.fillStyle = '#22ff55'; ctx.fillRect(15, 22, (player.hp / player.maxHp) * 110, 6);
+            ctx.fillStyle = '#fff'; ctx.font = '9px sans-serif';
+            ctx.fillText(`SCORE: ${score}`, 15, 17);
+        }
+
+        // --- しらいしの高密度描写 ---
+        function drawHDUncle(x, y, dir, styleIndex, isAttacking, showName) {
+            let legState = player.isMoving || gameMode==='LOCKER_ROOM' ? (Math.floor(walkFrame / 6) % 2) : 0;
+            ctx.save();
+
+            // 名前「しらいし」の表示（バトル中のみ頭上に固定描画）
+            if (showName && gameMode === 'STREET_BATTLE') {
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 9px sans-serif';
+                ctx.textAlign = 'center';
+                // 文字の視認性を上げる黒い縁取り効果
+                ctx.fillStyle = '#000000';
+                ctx.fillText("しらいし", x + 16, y - 7);
+                ctx.fillText("しらいし", x + 16, y - 5);
+                ctx.fillText("しらいし", x + 15, y - 6);
+                ctx.fillText("しらいし", x + 17, y - 6);
+                ctx.fillStyle = '#00ffff'; // サイバー水色
+                ctx.fillText("しらいし", x + 16, y - 6);
+            }
+
+            if (dir === -1) { ctx.translate(x + 16, 0); ctx.scale(-1, 1); ctx.translate(-(x + 16), 0); }
+
+            // リアル顔
+            ctx.fillStyle = '#fecd9a'; ctx.fillRect(x + 8, y, 16, 20); 
+            ctx.fillStyle = '#e5a273'; ctx.fillRect(x + 18, y + 2, 6, 16); ctx.fillRect(x + 8, y + 12, 16, 2); 
+            ctx.fillStyle = '#323232'; ctx.fillRect(x + 9, y + 3, 5, 2); ctx.fillRect(x + 17, y + 3, 5, 2); 
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 10, y + 6, 4, 3); ctx.fillRect(x + 18, y + 6, 4, 3); 
+            ctx.fillStyle = '#000000'; ctx.fillRect(x + 11, y + 6, 2, 2); ctx.fillRect(x + 19, y + 6, 2, 2); 
+            ctx.fillStyle = '#a6b4c1'; ctx.fillRect(x + 8, y + 13, 16, 7); // 青髭
+            ctx.fillStyle = '#2a2a2a'; ctx.fillRect(x + 12, y + 14, 8, 2); 
+            ctx.fillStyle = '#111'; ctx.fillRect(x + 6, y, 2, 16); ctx.fillRect(x + 24, y, 2, 16); ctx.fillRect(x + 9, y - 1, 13, 1);
+
+            // 衣装
+            const type = wardrobe[styleIndex].type;
+            if (type === "SAILOR") {
+                ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 4, y + 20, 24, 18);
+                ctx.fillStyle = '#2980b9'; ctx.fillRect(x + 4, y + 20, 24, 4);
+                ctx.fillStyle = '#e74c3c'; ctx.fillRect(x + 13, y + 24, 6, 6);
+                ctx.fillStyle = '#1f3a60'; ctx.fillRect(x + 2, y + 38, 28, 16);
+                ctx.fillStyle = '#0f1f38'; ctx.fillRect(x + 8, y + 38, 2, 16); ctx.fillRect(x + 18, y + 38, 2, 16);
+            } else if (type === "SUSPENDER") {
+                ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 4, y + 20, 24, 18);
+                ctx.fillStyle = '#9b59b6'; ctx.fillRect(x + 3, y + 36, 26, 18);
+                ctx.fillStyle = '#4a285d'; ctx.fillRect(x + 7, y + 20, 3, 16); ctx.fillRect(x + 22, y + 20, 3, 16);
+            } else if (type === "GOTH") {
+                ctx.fillStyle = '#2c2c2c'; ctx.fillRect(x + 2, y + 20, 28, 34);
+                ctx.fillStyle = '#8e44ad'; ctx.fillRect(x + 8, y + 22, 16, 14);
+                ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 2, y + 42, 28, 3);
+            } else if (type === "CHINA") {
+                ctx.fillStyle = '#c0392b'; ctx.fillRect(x + 4, y + 20, 24, 34);
+                ctx.fillStyle = '#f1c40f'; ctx.fillRect(x + 14, y + 22, 4, 2);
+                ctx.fillStyle = '#fecd9a'; ctx.fillRect(x + 21, y + 40, 7, 14);
+            } else if (type === "BUNNY") {
+                ctx.fillStyle = '#111'; ctx.fillRect(x + 6, y + 20, 20, 24);
+                ctx.fillStyle = '#fff'; ctx.fillRect(x + 11, y + 20, 10, 4);
+                ctx.fillStyle = '#111'; ctx.fillRect(x + 10, y - 11, 3, 11); ctx.fillRect(x + 19, y - 11, 3, 11);
+                ctx.fillStyle = '#fecd9a'; ctx.fillRect(x + 6, y + 44, 20, 10);
+            } else if (type === "SUIT") {
+                ctx.fillStyle = '#2c3e50'; ctx.fillRect(x + 2, y + 20, 28, 24);
+                ctx.fillStyle = '#fff'; ctx.fillRect(x + 13, y + 20, 6, 10);
+                ctx.fillStyle = '#e74c3c'; ctx.fillRect(x + 15, y + 22, 2, 8);
+                ctx.fillStyle = '#22313f'; ctx.fillRect(x + 4, y + 44, 24, 10);
+            }
+
+            if (isAttacking) {
+                ctx.fillStyle = '#fecd9a'; ctx.fillRect(x + 20, y + 24, 14, 6);
+                ctx.fillStyle = '#d43f3a'; ctx.fillRect(x + 34, y + 23, 4, 8);
+            }
+
+            ctx.fillStyle = '#222';
+            let lY = y + 54;
+            if (legState === 0) { ctx.fillRect(x + 5, lY, 6, 10); ctx.fillRect(x + 19, lY, 6, 10); } 
+            else { ctx.fillRect(x + 2, lY, 6, 10); ctx.fillRect(x + 22, lY, 6, 10); }
+            ctx.restore();
+        }
+
+        // --- 敵セーラーおじさんの描写 ---
+        function drawSailorEnemy(enemy) {
+            let legState = Math.floor(enemy.walkFrame / 7) % 2;
+            ctx.save();
+            if (enemy.dir === 1) { ctx.translate(enemy.x + 16, 0); ctx.scale(-1, 1); ctx.translate(-(enemy.x + 16), 0); }
+
+            if (enemy.isHit) { ctx.fillStyle = '#ff4444'; } else { ctx.fillStyle = '#fecd9a'; }
+            
+            let ex = enemy.x; let ey = enemy.y;
+            ctx.fillRect(ex + 8, ey, 16, 20); 
+            ctx.fillStyle = enemy.isHit ? '#ff4444' : '#e5a273'; 
+            ctx.fillRect(ex + 6, ey + 2, 4, 16); ctx.fillRect(ex + 8, ey + 12, 16, 2); 
+            
+            ctx.fillStyle = '#000'; ctx.fillRect(ex + 10, ey + 3, 5, 2); ctx.fillRect(ex + 17, ey + 3, 5, 2); 
+            ctx.fillStyle = '#fff'; ctx.fillRect(ex + 10, ey + 6, 4, 3); ctx.fillRect(ex + 18, ey + 6, 4, 3);
+            ctx.fillStyle = '#000'; ctx.fillRect(ex + 12, ey + 6, 2, 2); ctx.fillRect(ex + 18, ey + 6, 2, 2);
+            
+            ctx.fillStyle = enemy.isHit ? '#ff6666' : '#9bb0a5'; ctx.fillRect(ex + 8, ey + 13, 16, 7); 
+            ctx.fillStyle = '#333'; ctx.fillRect(ex + 12, ey + 14, 8, 2);
+
+            // 金髪バーコード
+            ctx.fillStyle = enemy.isHit ? '#ff8888' : '#e5b842';
+            ctx.fillRect(ex + 6, ey, 2, 15); ctx.fillRect(ex + 24, ey, 2, 15); ctx.fillRect(ex + 9, ey - 1, 13, 1);
+
+            // 敵の黒セーラー＆赤ミニスカート
+            ctx.fillStyle = '#222226'; ctx.fillRect(ex + 4, ey + 20, 24, 18); 
+            ctx.fillStyle = '#c0392b'; ctx.fillRect(ex + 4, ey + 20, 24, 4);  
+            ctx.fillStyle = '#f1c40f'; ctx.fillRect(ex + 13, ey + 24, 6, 4);  
+            ctx.fillStyle = '#c0392b'; ctx.fillRect(ex + 2, ey + 38, 28, 16); 
+            ctx.fillStyle = '#7f2217'; ctx.fillRect(ex + 8, ey + 38, 2, 16); ctx.fillRect(ex + 18, ey + 38, 2, 16);
+
+            // 敵の攻撃モーション（張り手）
+            if (enemy.isAttacking) {
+                ctx.fillStyle = '#fecd9a'; ctx.fillRect(ex + 20, ey + 22, 15, 8); 
+                ctx.fillStyle = '#ff5555'; ctx.fillRect(ex + 32, ey + 18, 5, 14); 
+            }
+
+            ctx.fillStyle = '#111';
+            let lY = ey + 54;
+            if (legState === 0) { ctx.fillRect(ex + 5, lY, 6, 10); ctx.fillRect(ex + 19, lY, 6, 10); } 
+            else { ctx.fillRect(ex + 2, lY, 6, 10); ctx.fillRect(ex + 22, lY, 6, 10); }
+
+            if (enemy.hp > 0) {
+                ctx.fillStyle = 'black'; ctx.fillRect(ex, ey - 15, 32, 4);
+                ctx.fillStyle = '#ff3333'; ctx.fillRect(ex, ey - 15, (enemy.hp / enemy.maxHp) * 32, 4);
+            }
+            ctx.restore();
+        }
+
+        gameLoop();
+    </script>
+    <!-- スマホ用バーチャルパッド追加 -->
+    <style>
+        #virtual-pad {
+            position: absolute; bottom: 20px; left: 0; width: 100%; height: 150px;
+            pointer-events: none; display: flex; justify-content: space-between;
+            padding: 0 20px; box-sizing: border-box; z-index: 1000;
+        }
+        .pad-btn {
+            pointer-events: auto; background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.4); border-radius: 50%;
+            color: white; font-size: 24px; font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
+            user-select: none; -webkit-user-select: none;
+        }
+        .pad-btn:active { background: rgba(255, 255, 255, 0.5); }
+        #dpad { position: relative; width: 150px; height: 150px; }
+        #dpad .pad-btn { position: absolute; width: 50px; height: 50px; }
+        #btn-up { top: 0; left: 50px; } #btn-down { bottom: 0; left: 50px; }
+        #btn-left { top: 50px; left: 0; } #btn-right { top: 50px; right: 0; }
+        #action-pad { position: relative; width: 150px; height: 150px; }
+        #action-pad .pad-btn { position: absolute; width: 60px; height: 60px; font-size: 16px; }
+        #btn-b { bottom: 20px; left: 0; background: rgba(255,0,0,0.3); border-color: rgba(255,0,0,0.5);}
+        #btn-a { top: 20px; right: 0; background: rgba(0,255,0,0.3); border-color: rgba(0,255,0,0.5);}
+        @media (hover: hover) and (pointer: fine) { #virtual-pad { display: none; } }
+    </style>
+    <div id="virtual-pad">
+        <div id="dpad">
+            <div id="btn-up" class="pad-btn">▲</div><div id="btn-down" class="pad-btn">▼</div>
+            <div id="btn-left" class="pad-btn">◀</div><div id="btn-right" class="pad-btn">▶</div>
+        </div>
+        <div id="action-pad">
+            <div id="btn-b" class="pad-btn">B</div><div id="btn-a" class="pad-btn">A</div>
+        </div>
+    </div>
+    <script>
+    function setupVirtualPad() {
+        const triggerKey = (type, codes, keys) => {
+            if (!Array.isArray(codes)) codes = [codes];
+            if (!Array.isArray(keys)) keys = [keys];
+            for (let i = 0; i < codes.length; i++) {
+                const event = new KeyboardEvent(type, { code: codes[i], key: keys[i], bubbles: true, cancelable: true });
+                document.dispatchEvent(event); window.dispatchEvent(event);
+            }
+        };
+        const bindBtn = (id, codes, keys) => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            const press = (e) => { if (e.cancelable) e.preventDefault(); triggerKey('keydown', codes, keys); };
+            const release = (e) => { if (e.cancelable) e.preventDefault(); triggerKey('keyup', codes, keys); };
+            btn.addEventListener('touchstart', press, { passive: false });
+            btn.addEventListener('touchend', release, { passive: false });
+            btn.addEventListener('mousedown', press);
+            btn.addEventListener('mouseup', release);
+            btn.addEventListener('mouseleave', release);
+        };
+        bindBtn('btn-up', 'ArrowUp', 'ArrowUp'); bindBtn('btn-down', 'ArrowDown', 'ArrowDown');
+        bindBtn('btn-left', 'ArrowLeft', 'ArrowLeft'); bindBtn('btn-right', 'ArrowRight', 'ArrowRight');
+        bindBtn('btn-a', ['Space', 'KeyX'], [' ', 'x']);
+        bindBtn('btn-b', ['Enter', 'KeyZ'], ['Enter', 'z']);
+    }
+    setupVirtualPad();
+    </script>
+</body>
+</html>

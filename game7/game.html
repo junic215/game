@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>OJISAN BATTLE: DOUBLE BOSS EDITION</title>
+    <style>
+        body {
+            background-color: #222;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Courier New', Courier, monospace;
+            margin-top: 20px;
+            image-rendering: pixelated;
+        }
+        canvas {
+            background-color: black;
+            box-shadow: 0px 0px 15px rgba(255, 255, 255, 0.2);
+            image-rendering: pixelated;
+        }
+        p { margin-top: 10px; text-align: center; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+    <h2>OJISAN BATTLE</h2>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <p>操作: [W][A][S][D]または[矢印キー]で移動 / [スペースキー]で弓を撃つ / [Enter]でスタート<br>
+    <span style="color: #ffaa00;">⚠️警告: 仲間は1人だけ！ボスは2連戦です！</span></p>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const WIDTH = canvas.width;
+const HEIGHT = canvas.height;
+
+// --- ピクセルアートデータ ---
+
+// パレット定義 (13: ホットピンク を追加)
+// 0:透明, 1:黒枠/ヒゲ/瞳, 2:肌色, 3:髪茶, 4:服青, 5:服オレンジ, 6:服緑, 7:服赤, 8:弓, 9:剣, 10:濃いグレー, 11:白(白目), 12:口(暗い赤), 13: ピンク
+const PALETTE = [
+    null, 'black', '#FCD5B5', '#8B4513', 'blue', 'orange', 'green', 'red', '#A52A2A', 'gray', '#333', 'white', '#8B0000', '#FF69B4'
+];
+
+// プレイヤーのスプライト (15x15)
+const playerSprites = {
+    down: [
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,3,3,3,3,3,3,3,3,3,3,3,3,3,1],
+        [1,3,2,2,2,2,2,2,2,2,2,2,2,3,1],
+        [1,3,2,1,1,2,2,2,2,2,1,1,2,3,1],
+        [1,3,2,2,2,2,10,10,10,2,2,2,2,3,1],
+        [1,1,1,1,1,4,4,4,4,4,1,1,1,1,1],
+        [1,4,4,4,1,4,4,4,4,4,1,4,4,4,1],
+        [1,4,4,4,1,4,4,4,4,4,1,4,4,4,1],
+        [1,4,4,4,1,4,4,4,4,4,1,4,4,4,1],
+        [1,4,4,4,1,4,4,4,4,4,1,4,4,4,1],
+        [1,8,8,8,1,4,4,4,4,4,1,8,8,8,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0]
+    ],
+    up: [
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,3,3,3,3,3,3,3,3,3,3,3,3,3,1],
+        [1,3,3,3,3,3,3,3,3,3,3,3,3,3,1],
+        [1,3,3,3,3,3,3,3,3,3,3,3,3,3,1],
+        [1,3,3,3,3,3,3,3,3,3,3,3,3,3,1],
+        [1,1,1,1,1,4,4,4,4,4,1,1,1,1,1],
+        [1,4,4,4,1,4,4,4,4,4,1,4,4,4,1],
+        [1,4,4,4,1,4,4,4,4,4,1,4,4,4,1],
+        [1,4,4,4,1,4,4,4,4,4,1,4,4,4,1],
+        [1,4,4,4,1,4,4,4,4,4,1,4,4,4,1],
+        [1,8,8,8,1,4,4,4,4,4,1,8,8,8,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0]
+    ],
+    left: [
+        [0,0,0,1,1,1,1,1,1,1,1,1,0,0,0],
+        [0,0,1,3,3,3,3,3,3,3,3,3,1,0,0],
+        [0,1,3,3,2,2,2,2,2,2,3,3,3,1,0],
+        [0,1,3,2,2,1,2,2,2,2,3,3,3,1,0],
+        [0,1,3,2,2,10,10,10,2,2,3,3,3,1,0],
+        [1,1,1,1,1,4,4,4,4,4,1,1,1,1,1],
+        [1,8,8,1,4,4,4,4,4,4,1,8,8,1,1],
+        [1,8,8,1,4,4,4,4,4,4,1,8,8,1,1],
+        [1,8,8,1,4,4,4,4,4,4,1,8,8,1,1],
+        [1,8,8,1,4,4,4,4,4,4,1,8,8,1,1],
+        [1,8,8,1,4,4,4,4,4,4,1,8,8,1,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0]
+    ],
+    right: [
+        [0,0,0,1,1,1,1,1,1,1,1,1,0,0,0],
+        [0,0,1,3,3,3,3,3,3,3,3,3,1,0,0],
+        [0,1,3,3,3,2,2,2,2,2,2,3,3,1,0],
+        [0,1,3,3,3,2,2,2,2,1,2,2,3,1,0],
+        [0,1,3,3,3,2,2,10,10,10,2,2,3,1,0],
+        [1,1,1,1,1,4,4,4,4,4,1,1,1,1,1],
+        [1,1,8,8,1,4,4,4,4,4,4,1,8,8,1],
+        [1,1,8,8,1,4,4,4,4,4,4,1,8,8,1],
+        [1,1,8,8,1,4,4,4,4,4,4,1,8,8,1],
+        [1,1,8,8,1,4,4,4,4,4,4,1,8,8,1],
+        [1,1,8,8,1,4,4,4,4,4,4,1,8,8,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0]
+    ]
+};
+
+// 敵（ザコおじさん）のスプライト
+const ojisanSprites = {
+    down: [
+        [0,0,0,1,1,1,1,1,1,1,1,1,0,0,0],
+        [0,0,1,10,10,2,2,2,2,2,10,10,1,0,0],
+        [0,1,10,2,2,2,2,2,2,2,2,10,1,0],
+        [0,1,2,2,1,1,2,2,2,1,1,2,2,1,0],
+        [0,1,2,2,2,2,10,10,10,2,2,2,2,1,0],
+        [0,1,2,2,2,2,10,10,10,2,2,2,2,1,0],
+        [1,1,1,1,1,5,5,5,5,5,1,1,1,1,1],
+        [1,5,5,5,1,5,5,5,5,5,1,5,5,5,1],
+        [1,5,5,5,1,5,5,5,5,5,1,5,5,5,1],
+        [1,5,5,5,1,5,5,5,5,5,1,5,5,5,1],
+        [1,5,5,5,1,5,5,5,5,5,1,5,5,5,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0]
+    ],
+    up: [
+        [0,0,0,1,1,1,1,1,1,1,1,1,0,0,0],
+        [0,0,1,10,10,10,10,10,10,10,10,10,1,0,0],
+        [0,1,10,10,10,10,10,10,10,10,10,10,1,0],
+        [0,1,10,10,10,10,10,10,10,10,10,10,1,0],
+        [0,1,10,10,10,10,10,10,10,10,10,10,1,0],
+        [0,1,10,10,10,10,10,10,10,10,10,10,1,0],
+        [1,1,1,1,1,5,5,5,5,5,1,1,1,1,1],
+        [1,5,5,5,1,5,5,5,5,5,1,5,5,5,1],
+        [1,5,5,5,1,5,5,5,5,5,1,5,5,5,1],
+        [1,5,5,5,1,5,5,5,5,5,1,5,5,5,1],
+        [1,5,5,5,1,5,5,5,5,5,1,5,5,5,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0]
+    ],
+    left: [
+        [0,0,0,1,1,1,1,1,1,1,1,1,0,0,0],
+        [0,0,1,10,10,10,10,10,10,10,1,0,0],
+        [0,1,10,10,10,10,10,10,10,10,1,0],
+        [0,1,10,2,2,1,1,10,10,10,1,0],
+        [0,1,10,10,10,10,10,10,10,10,1,0],
+        [0,1,10,10,10,10,10,10,10,10,1,0],
+        [1,1,1,1,1,5,5,5,5,5,1,1,1,1,1],
+        [1,5,5,1,5,5,5,5,5,5,1,5,5,1,1],
+        [1,5,5,1,5,5,5,5,5,5,1,5,5,1,1],
+        [1,5,5,1,5,5,5,5,5,5,1,5,5,1,1],
+        [1,5,5,1,5,5,5,5,5,5,1,5,5,1,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0]
+    ],
+    right: [
+        [0,0,0,1,1,1,1,1,1,1,1,1,0,0,0],
+        [0,0,1,10,10,10,10,10,10,10,1,0,0],
+        [0,1,10,10,10,10,10,10,10,10,1,0],
+        [0,1,10,10,10,1,1,1,2,2,10,1,0],
+        [0,1,10,10,10,10,10,10,10,10,1,0],
+        [0,1,10,10,10,10,10,10,10,10,1,0],
+        [1,1,1,1,1,5,5,5,5,5,1,1,1,1,1],
+        [1,1,5,5,1,5,5,5,5,5,5,1,5,5,1],
+        [1,1,5,5,1,5,5,5,5,5,5,1,5,5,1],
+        [1,1,5,5,1,5,5,5,5,5,5,1,5,5,1],
+        [1,1,5,5,1,5,5,5,5,5,5,1,5,5,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0],
+        [0,0,1,1,1,0,0,0,0,0,1,1,1,0,0]
+    ]
+};
+
+// 仲間（剣士）のスプライト
+const allySprites = {
+    down: [
+        [1,1,1,1,1,1,1,1,1,1,1],
+        [1,3,3,3,3,3,3,3,3,3,1],
+        [1,3,2,2,2,2,2,2,2,3,1],
+        [1,3,2,1,2,2,2,1,2,3,1],
+        [1,3,2,2,2,10,2,2,2,3,1],
+        [1,1,1,1,6,6,6,1,1,1,1],
+        [1,6,6,1,6,6,6,1,6,6,1],
+        [1,6,6,1,6,6,6,1,6,6,1],
+        [1,9,9,1,6,6,6,1,9,9,1],
+        [1,1,1,1,1,1,1,1,1,1,1],
+        [0,1,1,1,0,0,0,1,1,1,0],
+        [0,1,1,1,0,0,0,1,1,1,0],
+        [0,1,1,1,0,0,0,1,1,1,0]
+    ],
+    up: [
+        [1,1,1,1,1,1,1,1,1,1,1],
+        [1,3,3,3,3,3,3,3,3,3,1],
+        [1,3,3,3,3,3,3,3,3,3,1],
+        [1,3,3,3,3,3,3,3,3,3,1],
+        [1,3,3,3,3,3,3,3,3,3,1],
+        [1,1,1,1,6,6,6,1,1,1,1],
+        [1,6,6,1,6,6,6,1,6,6,1],
+        [1,6,6,1,6,6,6,1,6,6,1],
+        [1,9,9,1,6,6,6,1,9,9,1],
+        [1,1,1,1,1,1,1,1,1,1,1],
+        [0,1,1,1,0,0,0,1,1,1,0],
+        [0,1,1,1,0,0,0,1,1,1,0],
+        [0,1,1,1,0,0,0,1,1,1,0]
+    ],
+    left: [
+        [0,0,1,1,1,1,1,1,1,0,0],
+        [0,1,3,3,3,3,3,3,3,1,0],
+        [1,3,3,2,2,2,2,2,3,3,1],
+        [1,3,2,1,2,2,2,3,3,3,1],
+        [1,3,2,2,10,2,2,3,3,3,1],
+        [1,1,1,1,6,6,6,1,1,1,1],
+        [1,9,9,1,6,6,6,1,9,9,1],
+        [1,9,9,1,6,6,6,1,9,9,1],
+        [1,9,9,1,6,6,6,1,9,9,1],
+        [1,1,1,1,1,1,1,1,1,1,1],
+        [0,1,1,1,0,0,0,1,1,1,0],
+        [0,1,1,1,0,0,0,1,1,1,0],
+        [0,1,1,1,0,0,0,1,1,1,0]
+    ],
+    right: [
+        [0,0,1,1,1,1,1,1,1,0,0],
+        [0,1,3,3,3,3,3,3,3,1,0],
+        [1,3,3,3,2,2,2,2,2,3,1],
+        [1,3,3,3,2,2,2,1,2,3,1],
+        [1,3,3,3,2,2,10,2,2,3,1],
+        [1,1,1,1,6,6,6,1,1,1,1],
+        [1,9,9,1,6,6,6,1,9,9,1],
+        [1,9,9,1,6,6,6,1,9,9,1],
+        [1,9,9,1,6,6,6,1,9,9,1],
+        [1,1,1,1,1,1,1,1,1,1,1],
+        [0,1,1,1,0,0,0,1,1,1,0],
+        [0,1,1,1,0,0,0,1,1,1,0],
+        [0,1,1,1,0,0,0,1,1,1,0]
+    ]
+};
+
+// ボス1「巨大なおじさんの顔（生首）」 (20x20)
+const bossFaceSprite = {
+    down: [
+        [0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0],
+        [0,0,0,0,1,1,2,2,2,2,2,2,2,2,1,1,0,0,0,0],
+        [0,0,0,1,2,2,2,2,2,2,2,2,2,2,2,2,1,0,0,0],
+        [0,0,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1,0,0],
+        [0,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1,0],
+        [0,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1,0],
+        [1,2,2,2,2,1,1,1,2,2,2,1,1,1,2,2,2,2,2,1],
+        [1,2,2,2,1,11,11,11,1,2,1,11,11,11,1,2,2,2,2,1],
+        [1,2,2,2,1,11,1,11,1,2,1,11,1,11,1,2,2,2,2,1],
+        [1,2,2,2,1,11,11,11,1,2,1,11,11,11,1,2,2,2,2,1],
+        [1,2,2,2,2,1,1,1,2,2,2,1,1,1,2,2,2,2,2,1],
+        [1,2,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,2,1],
+        [1,2,2,2,2,2,2,2,1,2,1,2,2,2,2,2,2,2,2,1], 
+        [0,1,2,2,2,2,1,1,1,1,1,1,1,2,2,2,2,2,1,0], 
+        [0,1,2,2,2,1,1,1,1,1,1,1,1,1,2,2,2,2,1,0],
+        [0,0,1,2,1,1,1,1,1,1,1,1,1,1,1,2,2,1,0,0], 
+        [0,0,0,1,1,1,1,1,12,12,12,1,1,1,1,1,1,0,0,0], 
+        [0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0],
+        [0,0,0,0,0,1,2,2,2,2,2,2,2,1,0,0,0,0,0,0], 
+        [0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0]
+    ]
+};
+bossFaceSprite.up = bossFaceSprite.down;
+bossFaceSprite.left = bossFaceSprite.down;
+bossFaceSprite.right = bossFaceSprite.down;
+
+// ボス2「スカートをはいたおじさん」 (15x15)
+const bossSkirtSprite = {
+    down: [
+        [0,0,0,1,1,1,1,1,1,1,1,1,0,0,0],
+        [0,0,1,10,10,2,2,2,2,2,10,10,1,0,0], // ハゲ頭と側頭部の髪
+        [0,1,10,2,2,2,2,2,2,2,2,10,1,0],
+        [0,1,2,2,1,1,2,2,2,1,1,2,2,1,0],     // 目
+        [0,1,2,2,2,2,10,10,10,2,2,2,2,1,0],  // ヒゲ
+        [0,1,2,2,2,2,10,10,10,2,2,2,2,1,0],
+        [1,1,1,1,1,4,4,4,4,4,1,1,1,1,1],     // Tシャツ（青）
+        [1,2,2,4,1,4,4,4,4,4,1,4,2,2,1],
+        [1,2,2,4,1,4,4,4,4,4,1,4,2,2,1],
+        [1,1,1,1,1,13,13,13,13,13,1,1,1,1,1],  // スカート上部（ピンク）
+        [0,0,0,1,13,13,13,13,13,13,13,1,0,0,0], // スカート広がり
+        [0,0,1,13,13,13,13,13,13,13,13,13,1,0,0],
+        [0,0,1,1,1,1,1,1,1,1,1,1,1,0,0],      // スカートの裾
+        [0,0,0,0,1,2,2,1,1,2,2,1,0,0,0],      // 足
+        [0,0,0,0,1,1,1,1,1,1,1,1,0,0,0]       // 靴
+    ]
+};
+bossSkirtSprite.up = bossSkirtSprite.down;
+bossSkirtSprite.left = bossSkirtSprite.down;
+bossSkirtSprite.right = bossSkirtSprite.down;
+
+
+// スプライト描画関数
+function drawPixelArt(ctx, x, y, sprite, palette, pixelSize) {
+    for (let row = 0; row < sprite.length; row++) {
+        for (let col = 0; col < sprite[row].length; col++) {
+            const colorIndex = sprite[row][col];
+            if (colorIndex !== 0) {
+                ctx.fillStyle = palette[colorIndex];
+                ctx.fillRect(Math.floor(x + col * pixelSize), Math.floor(y + row * pixelSize), pixelSize, pixelSize);
+            }
+        }
+    }
+}
+
+// --- ゲームロジック ---
+
+const STATE = { TITLE: 0, STAGE1: 1, BOSS1: 2, BOSS2: 3, GAME_OVER: 4, GAME_CLEAR: 5 };
+let gameState = STATE.TITLE;
+const keys = {};
+let lastShotTime = 0;
+
+window.addEventListener("keydown", e => {
+    keys[e.code] = true;
+    if(["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
+        e.preventDefault();
+    }
+    if (e.code === "Enter" && (gameState === STATE.TITLE || gameState === STATE.GAME_OVER || gameState === STATE.GAME_CLEAR)) {
+        initGame();
+    }
+});
+window.addEventListener("keyup", e => keys[e.code] = false);
+
+let player, allies, enemies, arrows, boss;
+
+function initGame() {
+    allies = [];
+    enemies = [];
+    arrows = [];
+    boss = null;
+    
+    // プレイヤー
+    player = { x: WIDTH/2, y: HEIGHT-100, w: 30, h: 30, hp: 10, facingX: 0, facingY: -1, sprites: playerSprites, pSize: 2 };
+
+    // 仲間1人 (中央付近に配置)
+    allies.push({ x: WIDTH/2 - 50, y: HEIGHT-50, w: 26, h: 26, hp: 5, facingX: 0, facingY: -1, sprites: allySprites, pSize: 2 });
+
+    // 敵おじさん5人
+    for (let i = 0; i < 5; i++) {
+        enemies.push({ x: 100 + Math.random()*(WIDTH-200), y: 50 + Math.random()*100, w: 30, h: 30, hp: 8, facingX: 0, facingY: 1, sprites: ojisanSprites, pSize: 2 });
+    }
+
+    gameState = STATE.STAGE1;
+}
+
+function spawnBoss1() {
+    // 巨大な顔ボス (HP 50)
+    boss = { x: WIDTH/2 - 50, y: 50, w: 100, h: 100, hp: 50, facingX: 0, facingY: 1, sprites: bossFaceSprite, pSize: 5 };
+    gameState = STATE.BOSS1;
+}
+
+function spawnBoss2() {
+    // スカートのおじさんボス (HP 60, 少し大きめ 15x15 * 5 = 75x75)
+    boss = { x: WIDTH/2 - 37.5, y: 50, w: 75, h: 75, hp: 60, facingX: 0, facingY: 1, sprites: bossSkirtSprite, pSize: 5 };
+    gameState = STATE.BOSS2;
+}
+
+function rectIntersect(r1, r2) {
+    return !(r2.x > r1.x + r1.w || r2.x + r2.w < r1.x || r2.y > r1.y + r1.h || r2.y + r2.h < r1.y);
+}
+
+function update() {
+    if (gameState !== STATE.STAGE1 && gameState !== STATE.BOSS1 && gameState !== STATE.BOSS2) return;
+
+    // プレイヤー移動
+    let dx = 0, dy = 0;
+    if (keys["KeyW"] || keys["ArrowUp"]) dy -= 5;
+    if (keys["KeyS"] || keys["ArrowDown"]) dy += 5;
+    if (keys["KeyA"] || keys["ArrowLeft"]) dx -= 5;
+    if (keys["KeyD"] || keys["ArrowRight"]) dx += 5;
+
+    player.x += dx; player.y += dy;
+    if (dx !== 0 || dy !== 0) {
+        player.facingX = dx === 0 ? 0 : (dx > 0 ? 1 : -1);
+        player.facingY = dy === 0 ? 0 : (dy > 0 ? 1 : -1);
+    }
+    
+    player.x = Math.max(0, Math.min(player.x, WIDTH - player.w));
+    player.y = Math.max(0, Math.min(player.y, HEIGHT - player.h));
+
+    // 弓矢
+    if (keys["Space"] && Date.now() - lastShotTime > 200) {
+        let ax = player.facingX === 0 && player.facingY === 0 ? 0 : player.facingX;
+        let ay = player.facingX === 0 && player.facingY === 0 ? -1 : player.facingY;
+        arrows.push({ x: player.x + 10, y: player.y + 10, w: 5, h: 5, dx: ax * 12, dy: ay * 12 });
+        lastShotTime = Date.now();
+    }
+
+    // 弓矢移動と判定
+    for (let i = arrows.length - 1; i >= 0; i--) {
+        let a = arrows[i];
+        a.x += a.dx; a.y += a.dy;
+        let hit = false;
+
+        if (gameState === STATE.STAGE1) {
+            for (let j = enemies.length - 1; j >= 0; j--) {
+                let e = enemies[j];
+                if (rectIntersect(a, e)) {
+                    e.hp--;
+                    hit = true;
+                    break;
+                }
+            }
+        } else if ((gameState === STATE.BOSS1 || gameState === STATE.BOSS2) && boss) {
+            if (rectIntersect(a, boss)) {
+                boss.hp--;
+                hit = true;
+            }
+        }
+
+        if (a.x < 0 || a.x > WIDTH || a.y < 0 || a.y > HEIGHT || hit) {
+            arrows.splice(i, 1);
+        }
+    }
+
+    // 仲間AI
+    allies.forEach(ally => {
+        let target = (gameState === STATE.STAGE1 && enemies.length > 0) ? enemies[0] : boss;
+        if (target) {
+            let adx = 0, ady = 0;
+            if (target.x > ally.x) adx = 2;
+            if (target.x < ally.x) adx = -2;
+            if (target.y > ally.y) ady = 2;
+            if (target.y < ally.y) ady = -2;
+            ally.x += adx; ally.y += ady;
+            if (adx !== 0 || ady !== 0) {
+                ally.facingX = adx === 0 ? 0 : (adx > 0 ? 1 : -1);
+                ally.facingY = ady === 0 ? 0 : (ady > 0 ? 1 : -1);
+            }
+
+            if (rectIntersect(ally, target) && Math.random() < 0.1) {
+                target.hp--;
+            }
+        } else {
+            ally.x += (Math.random() * 4 - 2);
+            ally.y += (Math.random() * 4 - 2);
+        }
+    });
+
+    // 敵AI (ステージ1)
+    if (gameState === STATE.STAGE1) {
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            let e = enemies[i];
+            if (e.hp <= 0) {
+                enemies.splice(i, 1);
+                continue;
+            }
+            if (Math.random() > 0.3) {
+                let edx = 0, edy = 0;
+                if (player.x > e.x) edx = 1.5;
+                if (player.x < e.x) edx = -1.5;
+                if (player.y > e.y) edy = 1.5;
+                if (player.y < e.y) edy = -1.5;
+                e.x += edx; e.y += edy;
+                if (edx !== 0 || edy !== 0) {
+                    e.facingX = edx === 0 ? 0 : (edx > 0 ? 1 : -1);
+                    e.facingY = edy === 0 ? 0 : (edy > 0 ? 1 : -1);
+                }
+            }
+            if (rectIntersect(e, player) && Math.random() < 0.1) {
+                player.hp--;
+            }
+        }
+        if (enemies.length === 0) {
+            spawnBoss1();
+        }
+    }
+
+    // ボスAI (ボス1 & ボス2共通)
+    if ((gameState === STATE.BOSS1 || gameState === STATE.BOSS2) && boss) {
+        if (boss.hp <= 0) {
+            if (gameState === STATE.BOSS1) {
+                spawnBoss2(); // ボス1を倒したらボス2へ
+            } else {
+                gameState = STATE.GAME_CLEAR; // ボス2を倒したらクリア
+            }
+        } else {
+            // 第2ボスのスカートおじさんは移動速度が速い
+            let speed = gameState === STATE.BOSS1 ? 1.2 : 2.5; 
+            
+            let bdx = 0, bdy = 0;
+            if (player.x > boss.x) bdx = speed;
+            if (player.x < boss.x) bdx = -speed;
+            if (player.y > boss.y) bdy = speed;
+            if (player.y < boss.y) bdy = -speed;
+            boss.x += bdx; boss.y += bdy;
+            
+            if (bdx !== 0 || bdy !== 0) {
+                boss.facingX = bdx === 0 ? 0 : (bdx > 0 ? 1 : -1);
+                boss.facingY = bdy === 0 ? 0 : (bdy > 0 ? 1 : -1);
+            }
+
+            if (rectIntersect(boss, player) && Math.random() < 0.15) {
+                player.hp -= (gameState === STATE.BOSS1 ? 2 : 1); // スカートおじさんは手数が多く1ダメージ
+            }
+        }
+    }
+
+    if (player.hp <= 0) {
+        gameState = STATE.GAME_OVER;
+    }
+}
+
+function getSpriteForFacing(obj) {
+    if (obj.facingY < 0) return obj.sprites.up;
+    if (obj.facingX < 0) return obj.sprites.left;
+    if (obj.facingX > 0) return obj.sprites.right;
+    return obj.sprites.down;
+}
+
+function draw() {
+    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+    ctx.font = "bold 24px monospace";
+
+    if (gameState === STATE.TITLE) {
+        ctx.fillStyle = "white";
+        ctx.fillText("OJISAN BATTLE: DOUBLE BOSS EDITION", 130, HEIGHT / 2);
+        ctx.fillText("Press ENTER to Start", 250, HEIGHT / 2 + 50);
+        return;
+    }
+
+    const drawObj = (obj) => {
+        const sprite = getSpriteForFacing(obj);
+        drawPixelArt(ctx, obj.x, obj.y, sprite, PALETTE, obj.pSize);
+    };
+
+    drawObj(player);
+    allies.forEach(drawObj);
+    enemies.forEach(drawObj);
+    arrows.forEach(a => { ctx.fillStyle = "yellow"; ctx.fillRect(a.x, a.y, a.w, a.h); });
+
+    if (boss && (gameState === STATE.BOSS1 || gameState === STATE.BOSS2)) {
+        drawObj(boss);
+    }
+
+    // UI
+    ctx.fillStyle = "white";
+    ctx.fillText("Player HP: " + player.hp, 20, 30);
+    
+    if (gameState === STATE.BOSS1 && boss) {
+        ctx.fillStyle = "red";
+        ctx.fillText("GIANT FACE HP: " + boss.hp, WIDTH / 2 - 120, 30);
+    } else if (gameState === STATE.BOSS2 && boss) {
+        ctx.fillStyle = "#FF69B4"; // ピンク文字
+        ctx.fillText("SKIRT OJISAN HP: " + boss.hp, WIDTH / 2 - 130, 30);
+    }
+
+    if (gameState === STATE.GAME_OVER) {
+        ctx.fillStyle = "red";
+        ctx.font = "bold 48px monospace";
+        ctx.fillText("GAME OVER...", WIDTH / 2 - 150, HEIGHT / 2);
+    } else if (gameState === STATE.GAME_CLEAR) {
+        ctx.fillStyle = "yellow";
+        ctx.font = "bold 48px monospace";
+        ctx.fillText("ALL CLEAR!!", WIDTH / 2 - 150, HEIGHT / 2);
+    }
+}
+
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+
+</script>
+    <!-- スマホ用バーチャルパッド追加 -->
+    <style>
+        #virtual-pad {
+            position: absolute; bottom: 20px; left: 0; width: 100%; height: 150px;
+            pointer-events: none; display: flex; justify-content: space-between;
+            padding: 0 20px; box-sizing: border-box; z-index: 1000;
+        }
+        .pad-btn {
+            pointer-events: auto; background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.4); border-radius: 50%;
+            color: white; font-size: 24px; font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
+            user-select: none; -webkit-user-select: none;
+        }
+        .pad-btn:active { background: rgba(255, 255, 255, 0.5); }
+        #dpad { position: relative; width: 150px; height: 150px; }
+        #dpad .pad-btn { position: absolute; width: 50px; height: 50px; }
+        #btn-up { top: 0; left: 50px; } #btn-down { bottom: 0; left: 50px; }
+        #btn-left { top: 50px; left: 0; } #btn-right { top: 50px; right: 0; }
+        #action-pad { position: relative; width: 150px; height: 150px; }
+        #action-pad .pad-btn { position: absolute; width: 60px; height: 60px; font-size: 16px; }
+        #btn-b { bottom: 20px; left: 0; background: rgba(255,0,0,0.3); border-color: rgba(255,0,0,0.5);}
+        #btn-a { top: 20px; right: 0; background: rgba(0,255,0,0.3); border-color: rgba(0,255,0,0.5);}
+        @media (hover: hover) and (pointer: fine) { #virtual-pad { display: none; } }
+    </style>
+    <div id="virtual-pad">
+        <div id="dpad">
+            <div id="btn-up" class="pad-btn">▲</div><div id="btn-down" class="pad-btn">▼</div>
+            <div id="btn-left" class="pad-btn">◀</div><div id="btn-right" class="pad-btn">▶</div>
+        </div>
+        <div id="action-pad">
+            <div id="btn-b" class="pad-btn">B</div><div id="btn-a" class="pad-btn">A</div>
+        </div>
+    </div>
+    <script>
+    function setupVirtualPad() {
+        const triggerKey = (type, codes, keys) => {
+            if (!Array.isArray(codes)) codes = [codes];
+            if (!Array.isArray(keys)) keys = [keys];
+            for (let i = 0; i < codes.length; i++) {
+                const event = new KeyboardEvent(type, { code: codes[i], key: keys[i], bubbles: true, cancelable: true });
+                document.dispatchEvent(event); window.dispatchEvent(event);
+            }
+        };
+        const bindBtn = (id, codes, keys) => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            const press = (e) => { if (e.cancelable) e.preventDefault(); triggerKey('keydown', codes, keys); };
+            const release = (e) => { if (e.cancelable) e.preventDefault(); triggerKey('keyup', codes, keys); };
+            btn.addEventListener('touchstart', press, { passive: false });
+            btn.addEventListener('touchend', release, { passive: false });
+            btn.addEventListener('mousedown', press);
+            btn.addEventListener('mouseup', release);
+            btn.addEventListener('mouseleave', release);
+        };
+        bindBtn('btn-up', 'ArrowUp', 'ArrowUp'); bindBtn('btn-down', 'ArrowDown', 'ArrowDown');
+        bindBtn('btn-left', 'ArrowLeft', 'ArrowLeft'); bindBtn('btn-right', 'ArrowRight', 'ArrowRight');
+        bindBtn('btn-a', ['Space', 'KeyX'], [' ', 'x']);
+        bindBtn('btn-b', ['Enter', 'KeyZ'], ['Enter', 'z']);
+    }
+    setupVirtualPad();
+    </script>
+</body>
+</html>

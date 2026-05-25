@@ -214,7 +214,8 @@ header::before {
 }
 
 .game-screen.fullscreen-mode .fullscreen-btn {
-    bottom: 20px;
+    top: 20px;
+    bottom: auto;
     right: 20px;
     padding: 10px 15px;
     font-size: 1.2rem;
